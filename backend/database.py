@@ -28,3 +28,6 @@ def get_db():
     finally:
         # Always close the session after the request is complete
         db.close()
+
+# # Create all database tables automatically when the app starts
+# Base.metadata.create_all(bind=engine)
