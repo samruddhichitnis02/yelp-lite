@@ -1,4 +1,5 @@
 from routers.restaurants import router as restaurants_router
+from routers.users import router as users_router
 from routers.auth import router as auth_router
 from routers.me import router as me_router
 
@@ -21,6 +22,7 @@ app = FastAPI(title="Yelp Lite API", version="1.0.0")
 app.include_router(auth_router)
 app.include_router(me_router)
 app.include_router(restaurants_router)
+app.include_router(users_router)
 
 # Mount the "uploads" folder so uploaded images (profile pictures, restaurant images)
 # can be accessed publicly via URLs like http://localhost:8000/uploads/filename.jpg
