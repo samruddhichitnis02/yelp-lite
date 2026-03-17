@@ -14,6 +14,7 @@ from models.restaurants import Restaurant
 from models.review import Review
 from models.favourite import Favourite
 from models.preference import Preference
+from models.user_cuisine import UserCuisine
 
 Base.metadata.create_all(bind=engine)
 
