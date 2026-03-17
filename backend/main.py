@@ -14,6 +14,7 @@ from models.restaurants import Restaurant
 from models.review import Review
 from models.favourite import Favourite
 from models.preference import Preference
+from models.cuisine_type import CuisineType
 from models.user_cuisine import UserCuisine
 from models.dietary_type import DietaryType
 from models.user_dietary import UserDietary
