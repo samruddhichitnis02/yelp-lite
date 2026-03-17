@@ -17,6 +17,7 @@ from models.preference import Preference
 from models.user_cuisine import UserCuisine
 from models.dietary_type import DietaryType
 from models.user_dietary import UserDietary
+from models.ambiance_type import AmbianceType
 
 Base.metadata.create_all(bind=engine)
 
