@@ -22,6 +22,7 @@ class Restaurant(Base):
     price_range = Column(String(10), nullable=True)  # e.g. "$", "$$", "$$$"
     phone = Column(String(30), nullable=True)
     website = Column(String(255), nullable=True)
+    hours_of_operation = Column(String(255), nullable=True)
 
     description = Column(Text, nullable=True)
 
