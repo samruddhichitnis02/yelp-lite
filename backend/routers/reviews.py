@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from database import get_db
 from models.review import Review
@@ -30,5 +31,14 @@ def create_review(
     db.add(review)
     db.commit()
     db.refresh(review)
+
+    avg_rating = (
+        db.query(func.avg(Review.rating))
+        .filter(Review.restaurant_id == payload.restaurant_id)
+        .scalar()
+    )
+
+    restaurant.avg_rating = float(avg_rating) if avg_rating is not None else 0.0
+    db.commit()
 
     return review
