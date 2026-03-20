@@ -17,3 +17,7 @@ class ReviewCreateRequest(BaseModel):
     restaurant_id: int
     rating: int = Field(..., ge=1, le=5)
     comment: str | None = None
+
+class ReviewUpdateRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: str | None = None
