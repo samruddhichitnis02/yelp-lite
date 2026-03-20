@@ -34,6 +34,7 @@ def create_restaurant(
         price_range=payload.price_range,
         phone=payload.phone,
         website=payload.website,
+        hours_of_operation=payload.hours_of_operation,
         description=payload.description,
         image=payload.image,
         avg_rating=0.0,
