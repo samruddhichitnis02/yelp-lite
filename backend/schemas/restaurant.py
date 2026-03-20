@@ -13,6 +13,7 @@ class RestaurantCreateRequest(BaseModel):
     price_range: Optional[str] = Field(default=None, max_length=10)
     phone: Optional[str] = Field(default=None, max_length=30)
     website: Optional[str] = Field(default=None, max_length=255)
+    hours_of_operation: Optional[str] = Field(default=None, max_length=255)
 
     description: Optional[str] = None
     image: Optional[str] = Field(default=None, max_length=255)  # for now string path; upload endpoint later
