@@ -33,6 +33,7 @@ class RestaurantPublic(BaseModel):
     price_range: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
+    hours_of_operation: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
     avg_rating: float
