@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from schemas.review import ReviewPublic
+from typing import Optional, List
 
 class RestaurantCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -37,3 +38,7 @@ class RestaurantPublic(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RestaurantDetailPublic(RestaurantPublic):
+    review_count: int
+    reviews: List[ReviewPublic] = []
