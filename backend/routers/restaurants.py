@@ -142,6 +142,7 @@ def get_restaurant_details(
         "price_range": restaurant.price_range,
         "phone": restaurant.phone,
         "website": restaurant.website,
+        "hours_of_operation": restaurant.hours_of_operation,
         "description": restaurant.description,
         "image": restaurant.image,
         "avg_rating": restaurant.avg_rating,
