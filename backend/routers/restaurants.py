@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from models.review import Review
+from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic
 from sqlalchemy.orm import Session
 
 from typing import Optional
@@ -109,3 +111,39 @@ def search_restaurants(
 
     results = query.all()
     return results
+
+@router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)
+def get_restaurant_details(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    reviews = (
+        db.query(Review)
+        .filter(Review.restaurant_id == restaurant_id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+
+    return {
+        "id": restaurant.id,
+        "owner_id": restaurant.owner_id,
+        "name": restaurant.name,
+        "address": restaurant.address,
+        "city": restaurant.city,
+        "state": restaurant.state,
+        "zip_code": restaurant.zip_code,
+        "cuisine": restaurant.cuisine,
+        "price_range": restaurant.price_range,
+        "phone": restaurant.phone,
+        "website": restaurant.website,
+        "description": restaurant.description,
+        "image": restaurant.image,
+        "avg_rating": restaurant.avg_rating,
+        "review_count": len(reviews),
+        "reviews": reviews,
+    }
