@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
 from schemas.review import ReviewPublic
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 class RestaurantCreateRequest(BaseModel):
