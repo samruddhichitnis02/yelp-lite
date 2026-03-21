@@ -9,3 +9,36 @@ from schemas.favourite import FavouriteCreateRequest, FavouritePublic
 from services.deps import get_current_user
 
 router = APIRouter(prefix="/favourites", tags=["favourites"])
+
+@router.post("/", response_model=FavouritePublic)
+def create_favourite(
+    payload: FavouriteCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.id == payload.restaurant_id).first()
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    existing_favourite = (
+        db.query(Favourite)
+        .filter(
+            Favourite.user_id == current_user.id,
+            Favourite.restaurant_id == payload.restaurant_id,
+        )
+        .first()
+    )
+
+    if existing_favourite:
+        raise HTTPException(status_code=400, detail="Restaurant already in favourites")
+
+    favourite = Favourite(
+        user_id=current_user.id,
+        restaurant_id=payload.restaurant_id,
+    )
+
+    db.add(favourite)
+    db.commit()
+    db.refresh(favourite)
+
+    return favourite
