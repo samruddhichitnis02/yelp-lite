@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from models.review import Review
 from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic, RestaurantUpdateRequest
 from sqlalchemy.orm import Session
