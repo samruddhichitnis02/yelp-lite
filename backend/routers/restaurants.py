@@ -242,3 +242,23 @@ def upload_owner_restaurant_photo(
     db.refresh(restaurant)
 
     return restaurant
+
+@router.post("/{restaurant_id}/claim", response_model=RestaurantPublic)
+def claim_restaurant(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    if restaurant.owner_id is not None:
+        raise HTTPException(status_code=400, detail="Restaurant is already claimed")
+
+    restaurant.owner_id = current_owner.id
+    db.commit()
+    db.refresh(restaurant)
+
+    return restaurant
