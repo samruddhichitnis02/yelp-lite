@@ -42,3 +42,17 @@ def create_favourite(
     db.refresh(favourite)
 
     return favourite
+
+@router.get("/", response_model=list[FavouritePublic])
+def list_favourites(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    favourites = (
+        db.query(Favourite)
+        .filter(Favourite.user_id == current_user.id)
+        .order_by(Favourite.created_at.desc())
+        .all()
+    )
+
+    return favourites
