@@ -22,6 +22,7 @@ from models.dietary_type import DietaryType
 from models.user_dietary import UserDietary
 from models.ambiance_type import AmbianceType
 from models.user_ambiance import UserAmbiance
+from routers.chatbot import router as chatbot_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,6 +34,7 @@ app.include_router(restaurants_router)
 app.include_router(users_router)
 app.include_router(reviews_router)
 app.include_router(favourites_router)
+app.include_router(chatbot_router)
 
 # Mount the "uploads" folder so uploaded images (profile pictures, restaurant images)
 # can be accessed publicly via URLs like http://localhost:8000/uploads/filename.jpg
