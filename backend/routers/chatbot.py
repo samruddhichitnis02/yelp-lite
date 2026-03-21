@@ -25,7 +25,8 @@ def ai_assistant_chat(
     current_user: User = Depends(get_current_user),
 ):
     preferences = load_user_preferences(db, current_user.id)
-    candidate_restaurants = search_restaurant_candidates(db, preferences)
+    # candidate_restaurants = search_restaurant_candidates(db, preferences)
+    candidate_restaurants = search_restaurant_candidates(db, preferences, payload.message)
     restaurant_context = format_restaurants_for_prompt(candidate_restaurants)
     tavily_context = maybe_get_tavily_context(payload.message)
 
