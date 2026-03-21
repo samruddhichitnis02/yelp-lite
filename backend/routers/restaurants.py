@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from models.review import Review
-from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic
+from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic, RestaurantUpdateRequest
 from sqlalchemy.orm import Session
 
 from typing import Optional
@@ -9,8 +9,11 @@ from sqlalchemy import or_
 from database import get_db
 from models.restaurants import Restaurant
 from models.users import User
-from services.deps import get_current_user
-from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic
+from services.deps import get_current_user, get_current_owner
+
+from models.owner import Owner
+
+
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
@@ -149,3 +152,16 @@ def get_restaurant_details(
         "review_count": len(reviews),
         "reviews": reviews,
     }
+
+
+@router.get("/owner/profile", response_model=RestaurantPublic)
+def get_owner_restaurant_profile(
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+
+    return restaurant
