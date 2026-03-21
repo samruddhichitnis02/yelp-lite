@@ -59,20 +59,61 @@ def load_user_preferences(db, user_id: int) -> Dict[str, Any]:
     }
 
 
-def search_restaurant_candidates(db, preferences: Dict[str, Any]) -> List[Restaurant]:
+def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: str) -> List[Restaurant]:
+    from sqlalchemy import or_
+
     query = db.query(Restaurant)
 
-    if preferences.get("preferred_location"):
-        location = preferences["preferred_location"]
-        query = query.filter(Restaurant.city.ilike(f"%{location}%"))
+    lower_message = user_message.lower()
 
-    if preferences.get("price_range"):
-        query = query.filter(Restaurant.price_range == preferences["price_range"])
+    # --- Detect explicit user intent ---
+    explicit_cuisine = None
+    explicit_location = None
 
-    cuisines = preferences.get("cuisines") or []
-    if cuisines:
-        from sqlalchemy import or_
-        query = query.filter(or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in cuisines]))
+    # Check cuisine from DB values
+    all_cuisines = db.query(Restaurant.cuisine).filter(Restaurant.cuisine.isnot(None)).distinct().all()
+    for row in all_cuisines:
+        cuisine = row[0]
+        if cuisine and cuisine.lower() in lower_message:
+            explicit_cuisine = cuisine
+            break
+
+    # Check location from DB values
+    all_cities = db.query(Restaurant.city).filter(Restaurant.city.isnot(None)).distinct().all()
+    for row in all_cities:
+        city = row[0]
+        if city and city.lower() in lower_message:
+            explicit_location = city
+            break
+
+    # --- Apply filters ---
+
+    # 1. Cuisine
+    if explicit_cuisine:
+        query = query.filter(Restaurant.cuisine.ilike(f"%{explicit_cuisine}%"))
+    elif preferences.get("cuisines"):
+        query = query.filter(
+            or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in preferences["cuisines"]])
+        )
+
+    # 2. Location
+    if explicit_location:
+        query = query.filter(Restaurant.city.ilike(f"%{explicit_location}%"))
+    elif preferences.get("preferred_location"):
+        query = query.filter(Restaurant.city.ilike(f"%{preferences['preferred_location']}%"))
+
+    # 3. Price
+    price = None
+    for p in ["$$$$", "$$$", "$$", "$"]:
+        if p in lower_message:
+            price = p
+            break
+
+    if not price:
+        price = preferences.get("price_range")
+
+    if price:
+        query = query.filter(Restaurant.price_range == price)
 
     return query.order_by(Restaurant.avg_rating.desc()).limit(10).all()
 
