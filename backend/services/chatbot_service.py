@@ -102,14 +102,15 @@ def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: 
     elif preferences.get("preferred_location"):
         query = query.filter(Restaurant.city.ilike(f"%{preferences['preferred_location']}%"))
 
-    # 3. Price
+    # 3. Price Range
     price = None
     for p in ["$$$$", "$$$", "$$", "$"]:
         if p in lower_message:
             price = p
             break
 
-    if not price:
+    # Only use saved price as fallback when the user query is not already specific
+    if not price and not explicit_cuisine and not explicit_location:
         price = preferences.get("price_range")
 
     if price:
