@@ -165,3 +165,44 @@ def get_owner_restaurant_profile(
         raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
 
     return restaurant
+
+@router.put("/owner/profile", response_model=RestaurantPublic)
+def update_owner_restaurant_profile(
+    payload: RestaurantUpdateRequest,
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+
+    if payload.name is not None:
+        restaurant.name = payload.name
+    if payload.address is not None:
+        restaurant.address = payload.address
+    if payload.city is not None:
+        restaurant.city = payload.city
+    if payload.state is not None:
+        restaurant.state = payload.state
+    if payload.zip_code is not None:
+        restaurant.zip_code = payload.zip_code
+    if payload.cuisine is not None:
+        restaurant.cuisine = payload.cuisine
+    if payload.price_range is not None:
+        restaurant.price_range = payload.price_range
+    if payload.phone is not None:
+        restaurant.phone = payload.phone
+    if payload.website is not None:
+        restaurant.website = payload.website
+    if payload.hours_of_operation is not None:
+        restaurant.hours_of_operation = payload.hours_of_operation
+    if payload.description is not None:
+        restaurant.description = payload.description
+    if payload.image is not None:
+        restaurant.image = payload.image
+
+    db.commit()
+    db.refresh(restaurant)
+
+    return restaurant
