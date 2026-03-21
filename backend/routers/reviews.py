@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from models.owner import Owner
+
 
 from database import get_db
 from models.review import Review
@@ -108,3 +110,22 @@ def delete_review(
         db.commit()
 
     return {"message": "Review deleted successfully"}
+
+@router.get("/owner", response_model=list[ReviewPublic])
+def get_owner_reviews(
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant found for this owner")
+
+    reviews = (
+        db.query(Review)
+        .filter(Review.restaurant_id == restaurant.id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+
+    return reviews
