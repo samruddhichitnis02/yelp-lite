@@ -185,6 +185,7 @@ def build_messages(
         - Use saved preferences only as supporting context, not as a hard restriction when the message is more specific.
         - Keep the answer practical and concise.
         - Mention restaurant names exactly as they appear in the provided restaurant candidates.
+        - Only mention location constraints if the user explicitly specifies a location.
 
         User preferences:
         {preferences}
