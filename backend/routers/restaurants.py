@@ -15,6 +15,8 @@ from models.owner import Owner
 import os
 import shutil
 import uuid
+from models.favourite import Favourite
+from schemas.owner_dashboard import OwnerDashboardResponse
 
 
 
@@ -262,3 +264,42 @@ def claim_restaurant(
     db.refresh(restaurant)
 
     return restaurant
+
+
+@router.get("/owner/dashboard", response_model=OwnerDashboardResponse)
+def get_owner_dashboard(
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant found for this owner")
+
+    review_count = (
+        db.query(Review)
+        .filter(Review.restaurant_id == restaurant.id)
+        .count()
+    )
+
+    favourites_count = (
+        db.query(Favourite)
+        .filter(Favourite.restaurant_id == restaurant.id)
+        .count()
+    )
+
+    recent_reviews = (
+        db.query(Review)
+        .filter(Review.restaurant_id == restaurant.id)
+        .order_by(Review.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    return {
+        "restaurant": restaurant,
+        "review_count": review_count,
+        "favourites_count": favourites_count,
+        "avg_rating": restaurant.avg_rating,
+        "recent_reviews": recent_reviews,
+    }
