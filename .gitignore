@@ -1,13 +1,19 @@
-# Python (Your backend)
-backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/.env
+# Python cache
+__pycache__/
+*.pyc
 
-# Node (Partner's frontend)
-frontend/node_modules/
-frontend/.env
+# Virtual environments
+venv/
+.venv/
+env/
 
-# General
+# Environment files
+.env
+.env.*
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Uploaded files
+uploads/
