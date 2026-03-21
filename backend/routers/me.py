@@ -13,6 +13,10 @@ from models.user_ambiance import UserAmbiance
 from schemas.preferences import PreferenceUpdateRequest
 from services.deps import get_current_user, get_current_owner
 
+from models.restaurants import Restaurant
+from models.review import Review
+from schemas.history import UserHistoryResponse
+
 router = APIRouter(prefix="/me", tags=["me"])
 
 @router.get("/user")
@@ -146,3 +150,27 @@ def update_my_preferences(
     db.commit()
 
     return {"message": "Preferences updated successfully"}
+
+@router.get("/history", response_model=UserHistoryResponse)
+def get_my_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    restaurants_added = (
+        db.query(Restaurant)
+        .filter(Restaurant.created_by_user_id == current_user.id)
+        .order_by(Restaurant.created_at.desc())
+        .all()
+    )
+
+    reviews_written = (
+        db.query(Review)
+        .filter(Review.user_id == current_user.id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+
+    return {
+        "restaurants_added": restaurants_added,
+        "reviews_written": reviews_written,
+    }
