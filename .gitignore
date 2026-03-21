@@ -1,6 +1,8 @@
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # Virtual environments
 venv/
@@ -17,3 +19,12 @@ Thumbs.db
 
 # Uploaded files
 uploads/
+
+# Backend specific
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+
+# Frontend (Node)
+frontend/node_modules/
+frontend/.env
