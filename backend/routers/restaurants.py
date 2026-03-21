@@ -15,7 +15,7 @@ from models.owner import Owner
 import os
 import shutil
 import uuid
-from models.favourite import Favourite
+# from models.favourite import Favourite
 from schemas.owner_dashboard import OwnerDashboardResponse
 
 

@@ -14,7 +14,7 @@ from models.users import User
 from models.owner import Owner
 from models.restaurants import Restaurant
 from models.review import Review
-from models.favourite import Favourite
+# from models.favourite import Favourite
 from models.preference import Preference
 from models.cuisine_type import CuisineType
 from models.user_cuisine import UserCuisine
