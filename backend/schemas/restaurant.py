@@ -14,6 +14,7 @@ class RestaurantCreateRequest(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=30)
     website: Optional[str] = Field(default=None, max_length=255)
     hours_of_operation: Optional[str] = Field(default=None, max_length=255)
+    amenities: Optional[str] = None
 
     description: Optional[str] = None
     image: Optional[str] = Field(default=None, max_length=255)  # for now string path; upload endpoint later
@@ -34,6 +35,7 @@ class RestaurantPublic(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     hours_of_operation: Optional[str] = None
+    amenities: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
     avg_rating: float
@@ -57,6 +59,7 @@ class RestaurantUpdateRequest(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=30)
     website: Optional[str] = Field(default=None, max_length=255)
     hours_of_operation: Optional[str] = Field(default=None, max_length=255)
+    amenities: Optional[str] = None
 
     description: Optional[str] = None
     image: Optional[str] = Field(default=None, max_length=255)
