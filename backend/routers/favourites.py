@@ -56,3 +56,26 @@ def list_favourites(
     )
 
     return favourites
+
+@router.delete("/{restaurant_id}")
+def delete_favourite(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    favourite = (
+        db.query(Favourite)
+        .filter(
+            Favourite.user_id == current_user.id,
+            Favourite.restaurant_id == restaurant_id,
+        )
+        .first()
+    )
+
+    if not favourite:
+        raise HTTPException(status_code=404, detail="Favourite not found")
+
+    db.delete(favourite)
+    db.commit()
+
+    return {"message": "Removed from favourites"}
