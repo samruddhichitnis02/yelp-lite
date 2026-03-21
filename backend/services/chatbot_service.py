@@ -62,15 +62,10 @@ def load_user_preferences(db, user_id: int) -> Dict[str, Any]:
 def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: str) -> List[Restaurant]:
     from sqlalchemy import or_
 
-    query = db.query(Restaurant)
-
     lower_message = user_message.lower()
 
-    # --- Detect explicit user intent ---
+    # --- Detect explicit cuisine ---
     explicit_cuisine = None
-    explicit_location = None
-
-    # Check cuisine from DB values
     all_cuisines = db.query(Restaurant.cuisine).filter(Restaurant.cuisine.isnot(None)).distinct().all()
     for row in all_cuisines:
         cuisine = row[0]
@@ -78,7 +73,8 @@ def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: 
             explicit_cuisine = cuisine
             break
 
-    # Check location from DB values
+    # --- Detect explicit location ---
+    explicit_location = None
     all_cities = db.query(Restaurant.city).filter(Restaurant.city.isnot(None)).distinct().all()
     for row in all_cities:
         city = row[0]
@@ -86,37 +82,63 @@ def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: 
             explicit_location = city
             break
 
-    # --- Apply filters ---
-
-    # 1. Cuisine
-    if explicit_cuisine:
-        query = query.filter(Restaurant.cuisine.ilike(f"%{explicit_cuisine}%"))
-    elif preferences.get("cuisines"):
-        query = query.filter(
-            or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in preferences["cuisines"]])
-        )
-
-    # 2. Location
-    if explicit_location:
-        query = query.filter(Restaurant.city.ilike(f"%{explicit_location}%"))
-    elif preferences.get("preferred_location"):
-        query = query.filter(Restaurant.city.ilike(f"%{preferences['preferred_location']}%"))
-
-    # 3. Price Range
-    price = None
+    # --- Detect explicit price ---
+    explicit_price = None
     for p in ["$$$$", "$$$", "$$", "$"]:
         if p in lower_message:
-            price = p
+            explicit_price = p
             break
 
-    # Only use saved price as fallback when the user query is not already specific
-    if not price and not explicit_cuisine and not explicit_location:
-        price = preferences.get("price_range")
+    # ---------- PASS 1: strict explicit filters ----------
+    query = db.query(Restaurant)
 
-    if price:
-        query = query.filter(Restaurant.price_range == price)
+    if explicit_cuisine:
+        query = query.filter(Restaurant.cuisine.ilike(f"%{explicit_cuisine}%"))
 
-    return query.order_by(Restaurant.avg_rating.desc()).limit(10).all()
+    if explicit_location:
+        query = query.filter(Restaurant.city.ilike(f"%{explicit_location}%"))
+
+    if explicit_price:
+        query = query.filter(Restaurant.price_range == explicit_price)
+
+    results = query.order_by(Restaurant.avg_rating.desc()).limit(10).all()
+    if results:
+        return results
+
+    # ---------- PASS 2: explicit filters only, ignore price ----------
+    query = db.query(Restaurant)
+
+    if explicit_cuisine:
+        query = query.filter(Restaurant.cuisine.ilike(f"%{explicit_cuisine}%"))
+
+    if explicit_location:
+        query = query.filter(Restaurant.city.ilike(f"%{explicit_location}%"))
+
+    results = query.order_by(Restaurant.avg_rating.desc()).limit(10).all()
+    if results:
+        return results
+
+    # ---------- PASS 3: use preferences as fallback ----------
+    query = db.query(Restaurant)
+
+    if preferences.get("preferred_location"):
+        query = query.filter(Restaurant.city.ilike(f"%{preferences['preferred_location']}%"))
+
+    cuisines = preferences.get("cuisines") or []
+    if cuisines:
+        query = query.filter(
+            or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in cuisines])
+        )
+
+    if preferences.get("price_range"):
+        query = query.filter(Restaurant.price_range == preferences["price_range"])
+
+    results = query.order_by(Restaurant.avg_rating.desc()).limit(10).all()
+    if results:
+        return results
+
+    # ---------- PASS 4: fallback to top-rated restaurants ----------
+    return db.query(Restaurant).order_by(Restaurant.avg_rating.desc()).limit(10).all()
 
 
 def maybe_get_tavily_context(user_message: str) -> str:
