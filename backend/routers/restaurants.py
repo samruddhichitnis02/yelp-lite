@@ -12,6 +12,9 @@ from models.users import User
 from services.deps import get_current_user, get_current_owner
 
 from models.owner import Owner
+import os
+import shutil
+import uuid
 
 
 
@@ -202,6 +205,35 @@ def update_owner_restaurant_profile(
     if payload.image is not None:
         restaurant.image = payload.image
 
+    db.commit()
+    db.refresh(restaurant)
+
+    return restaurant
+
+@router.post("/owner/profile/photo", response_model=RestaurantPublic)
+def upload_owner_restaurant_photo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+
+    os.makedirs("uploads", exist_ok=True)
+
+    extension = os.path.splitext(file.filename)[1] if file.filename else ""
+    unique_filename = f"restaurant_{restaurant.id}_{uuid.uuid4().hex}{extension}"
+    file_path = os.path.join("uploads", unique_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    restaurant.image = f"uploads/{unique_filename}"
     db.commit()
     db.refresh(restaurant)
 
