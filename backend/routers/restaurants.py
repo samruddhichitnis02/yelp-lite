@@ -41,6 +41,7 @@ def create_restaurant(
         phone=payload.phone,
         website=payload.website,
         hours_of_operation=payload.hours_of_operation,
+        amenities=payload.amenities,
         description=payload.description,
         image=payload.image,
         avg_rating=0.0,
@@ -149,6 +150,7 @@ def get_restaurant_details(
         "phone": restaurant.phone,
         "website": restaurant.website,
         "hours_of_operation": restaurant.hours_of_operation,
+        "amenities": restaurant.amenities,
         "description": restaurant.description,
         "image": restaurant.image,
         "avg_rating": restaurant.avg_rating,
@@ -204,6 +206,8 @@ def update_owner_restaurant_profile(
         restaurant.description = payload.description
     if payload.image is not None:
         restaurant.image = payload.image
+    if payload.amenities is not None:
+        restaurant.amenities = payload.amenities
 
     db.commit()
     db.refresh(restaurant)
