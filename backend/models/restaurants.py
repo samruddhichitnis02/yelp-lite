@@ -23,6 +23,7 @@ class Restaurant(Base):
     phone = Column(String(30), nullable=True)
     website = Column(String(255), nullable=True)
     hours_of_operation = Column(String(255), nullable=True)
+    amenities = Column(Text, nullable=True)
 
     description = Column(Text, nullable=True)
 
