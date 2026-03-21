@@ -9,7 +9,7 @@ from models.review import Review
 from models.restaurants import Restaurant
 from models.users import User
 from schemas.review import ReviewCreateRequest, ReviewUpdateRequest, ReviewPublic
-from services.deps import get_current_user
+from services.deps import get_current_user, get_current_owner
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
  
