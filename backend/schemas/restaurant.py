@@ -44,3 +44,19 @@ class RestaurantPublic(BaseModel):
 class RestaurantDetailPublic(RestaurantPublic):
     review_count: int
     reviews: List[ReviewPublic] = []
+
+class RestaurantUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    address: Optional[str] = Field(default=None, max_length=255)
+    city: Optional[str] = Field(default=None, max_length=120)
+    state: Optional[str] = Field(default=None, max_length=60)
+    zip_code: Optional[str] = Field(default=None, max_length=20)
+
+    cuisine: Optional[str] = Field(default=None, max_length=120)
+    price_range: Optional[str] = Field(default=None, max_length=10)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    website: Optional[str] = Field(default=None, max_length=255)
+    hours_of_operation: Optional[str] = Field(default=None, max_length=255)
+
+    description: Optional[str] = None
+    image: Optional[str] = Field(default=None, max_length=255)
