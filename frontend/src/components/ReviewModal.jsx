@@ -1,31 +1,54 @@
 import React, { useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { FaStar } from 'react-icons/fa';
+import api from '../services/api';
 
-const ReviewModal = ({ show, handleClose, restaurantName }) => {
+const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReviewSubmitted }) => {
     const [rating, setRating] = useState(0);
     const [hover, setHover] = useState(null);
     const [comment, setComment] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (rating === 0) {
-            alert("Please select a star rating");
+            setError('Please select a star rating.');
             return;
         }
-        // In actual implementation, send rating + comment to backend
-        alert(`Review submitted for rating: ${rating}`);
+        setError('');
+        setLoading(true);
+        try {
+            await api.post('/reviews/', {
+                restaurant_id: restaurantId,
+                rating,
+                comment,
+            });
+            setRating(0);
+            setComment('');
+            handleClose();
+            if (onReviewSubmitted) onReviewSubmitted();
+        } catch (err) {
+            setError(err?.response?.data?.detail || 'Failed to submit review. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleModalClose = () => {
         setRating(0);
         setComment('');
+        setError('');
         handleClose();
     };
 
     return (
-        <Modal show={show} onHide={handleClose} centered>
+        <Modal show={show} onHide={handleModalClose} centered>
             <Modal.Header closeButton className="border-0 pb-0">
                 <Modal.Title className="fw-bold">Review {restaurantName}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
+                {error && <Alert variant="danger">{error}</Alert>}
                 <Form onSubmit={handleSubmit}>
                     <div className="text-center mb-4">
                         <h5 className="text-muted mb-3">How was your experience?</h5>
@@ -45,7 +68,11 @@ const ReviewModal = ({ show, handleClose, restaurantName }) => {
                                 );
                             })}
                         </div>
-                        {rating > 0 && <p className="mt-2 text-primary fw-bold">{['Terrible', 'Poor', 'Average', 'Good', 'Excellent'][rating - 1]}</p>}
+                        {rating > 0 && (
+                            <p className="mt-2 text-primary fw-bold">
+                                {['Terrible', 'Poor', 'Average', 'Good', 'Excellent'][rating - 1]}
+                            </p>
+                        )}
                     </div>
 
                     <Form.Group className="mb-4">
@@ -59,8 +86,16 @@ const ReviewModal = ({ show, handleClose, restaurantName }) => {
                         />
                     </Form.Group>
 
-                    <Button type="submit" variant="primary" className="w-100 rounded-pill fw-bold py-2 mb-2">
-                        Post Review
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        className="w-100 rounded-pill fw-bold py-2 mb-2"
+                        disabled={loading}
+                    >
+                        {loading
+                            ? <><Spinner size="sm" animation="border" className="me-2" />Submitting...</>
+                            : 'Post Review'
+                        }
                     </Button>
                 </Form>
             </Modal.Body>

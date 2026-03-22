@@ -16,8 +16,6 @@ import os
 import shutil
 import uuid
 from models.favourite import Favourite
-from schemas.owner_dashboard import OwnerDashboardResponse
-
 
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
@@ -29,7 +27,6 @@ def create_restaurant(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # User can create a restaurant listing; owner_id stays None until claimed by an owner.
     restaurant = Restaurant(
         owner_id=None,
         created_by_user_id=current_user.id,
@@ -48,11 +45,11 @@ def create_restaurant(
         image=payload.image,
         avg_rating=0.0,
     )
-
     db.add(restaurant)
     db.commit()
     db.refresh(restaurant)
     return restaurant
+
 
 @router.post("/owner/create", response_model=RestaurantPublic)
 def owner_create_restaurant(
@@ -102,9 +99,15 @@ def search_restaurants(
     if cuisine:
         query = query.filter(Restaurant.cuisine.ilike(f"%{cuisine}%"))
 
-    # Filter by keyword (search in description)
+    # Filter by keyword — search in description AND amenities
     if keyword:
-        query = query.filter(Restaurant.description.ilike(f"%{keyword}%"))
+        query = query.filter(
+            or_(
+                Restaurant.description.ilike(f"%{keyword}%"),
+                Restaurant.amenities.ilike(f"%{keyword}%"),
+                Restaurant.name.ilike(f"%{keyword}%"),
+            )
+        )
 
     # Filter by location (city OR zip)
     if location:
@@ -117,78 +120,6 @@ def search_restaurants(
 
     results = query.all()
     return results
-
-@router.get("/search", response_model=list[RestaurantPublic])
-def search_restaurants(
-    name: Optional[str] = None,
-    cuisine: Optional[str] = None,
-    keyword: Optional[str] = None,
-    location: Optional[str] = None,
-    db: Session = Depends(get_db),
-):
-    query = db.query(Restaurant)
-
-    # Filter by restaurant name
-    if name:
-        query = query.filter(Restaurant.name.ilike(f"%{name}%"))
-
-    # Filter by cuisine
-    if cuisine:
-        query = query.filter(Restaurant.cuisine.ilike(f"%{cuisine}%"))
-
-    # Filter by keyword (search in description)
-    if keyword:
-        query = query.filter(Restaurant.description.ilike(f"%{keyword}%"))
-
-    # Filter by location (city OR zip)
-    if location:
-        query = query.filter(
-            or_(
-                Restaurant.city.ilike(f"%{location}%"),
-                Restaurant.zip_code.ilike(f"%{location}%"),
-            )
-        )
-
-    results = query.all()
-    return results
-
-@router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)
-def get_restaurant_details(
-    restaurant_id: int,
-    db: Session = Depends(get_db),
-):
-    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
-
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="Restaurant not found")
-
-    reviews = (
-        db.query(Review)
-        .filter(Review.restaurant_id == restaurant_id)
-        .order_by(Review.created_at.desc())
-        .all()
-    )
-
-    return {
-        "id": restaurant.id,
-        "owner_id": restaurant.owner_id,
-        "name": restaurant.name,
-        "address": restaurant.address,
-        "city": restaurant.city,
-        "state": restaurant.state,
-        "zip_code": restaurant.zip_code,
-        "cuisine": restaurant.cuisine,
-        "price_range": restaurant.price_range,
-        "phone": restaurant.phone,
-        "website": restaurant.website,
-        "hours_of_operation": restaurant.hours_of_operation,
-        "amenities": restaurant.amenities,
-        "description": restaurant.description,
-        "image": restaurant.image,
-        "avg_rating": restaurant.avg_rating,
-        "review_count": len(reviews),
-        "reviews": reviews,
-    }
 
 
 @router.get("/owner/profile", response_model=RestaurantPublic)
@@ -202,6 +133,7 @@ def get_owner_restaurant_profile(
         raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
 
     return restaurant
+
 
 @router.put("/owner/profile", response_model=RestaurantPublic)
 def update_owner_restaurant_profile(
@@ -243,8 +175,8 @@ def update_owner_restaurant_profile(
 
     db.commit()
     db.refresh(restaurant)
-
     return restaurant
+
 
 @router.post("/owner/profile/photo", response_model=RestaurantPublic)
 def upload_owner_restaurant_photo(
@@ -272,8 +204,8 @@ def upload_owner_restaurant_photo(
     restaurant.image = f"uploads/{unique_filename}"
     db.commit()
     db.refresh(restaurant)
-
     return restaurant
+
 
 @router.post("/{restaurant_id}/claim", response_model=RestaurantPublic)
 def claim_restaurant(
@@ -292,7 +224,6 @@ def claim_restaurant(
     restaurant.owner_id = current_owner.id
     db.commit()
     db.refresh(restaurant)
-
     return restaurant
 
 
@@ -332,4 +263,43 @@ def get_owner_dashboard(
         "favourites_count": total_favourites_count,
         "avg_rating": round(avg_rating, 1),
         "recent_reviews": sorted(all_recent_reviews, key=lambda x: x.created_at, reverse=True)[:5],
+    }
+
+
+@router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)
+def get_restaurant_details(
+    restaurant_id: int,
+    db: Session = Depends(get_db),
+):
+    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    reviews = (
+        db.query(Review)
+        .filter(Review.restaurant_id == restaurant_id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+
+    return {
+        "id": restaurant.id,
+        "owner_id": restaurant.owner_id,
+        "name": restaurant.name,
+        "address": restaurant.address,
+        "city": restaurant.city,
+        "state": restaurant.state,
+        "zip_code": restaurant.zip_code,
+        "cuisine": restaurant.cuisine,
+        "price_range": restaurant.price_range,
+        "phone": restaurant.phone,
+        "website": restaurant.website,
+        "hours_of_operation": restaurant.hours_of_operation,
+        "amenities": restaurant.amenities,
+        "description": restaurant.description,
+        "image": restaurant.image,
+        "avg_rating": restaurant.avg_rating,
+        "review_count": len(reviews),
+        "reviews": reviews,
     }
