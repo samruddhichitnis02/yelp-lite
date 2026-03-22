@@ -37,6 +37,10 @@ const imageUrl = restaurant.image
                 src={imageUrl}
                 style={{ height: '200px', objectFit: 'cover' }}
                 alt={restaurant.name}
+                onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80';
+                }}
             />
             <Card.Body className="d-flex flex-column">
                 <div className="d-flex justify-content-between align-items-start mb-2">
