@@ -12,7 +12,7 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { signupUser, signupOwner, saveAuthData } from '../services/auth';
+import { signupUser, signupOwner, loginUser, loginOwner, saveAuthData } from '../services/auth';
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -61,9 +61,20 @@ const AuthPage = () => {
     setError('');
 
     if (isLogin) {
-      setError('Login integration will be added separately.');
-      return;
-    }
+  try {
+    setLoading(true);
+    const data = userType === 'owner'
+      ? await loginOwner({ email: formData.email, password: formData.password })
+      : await loginUser({ email: formData.email, password: formData.password });
+    saveAuthData(data);
+    navigate(userType === 'owner' ? '/owner/dashboard' : '/profile');
+  } catch (err) {
+    setError(err?.response?.data?.detail || 'Login failed. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+  return;
+}
 
 
     try {
@@ -195,7 +206,7 @@ const AuthPage = () => {
                     {loading ? (
                       <>
                         <Spinner animation="border" size="sm" className="me-2" />
-                        Signing Up...
+                        {isLogin ? 'Logging In...' : 'Signing Up...'}
                       </>
                     ) : (
                       isLogin ? 'Log In' : 'Sign Up'

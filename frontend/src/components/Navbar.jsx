@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { clearAuthData } from '../services/auth';
 import { Navbar, Nav, Container, Button, Dropdown } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaYelp } from 'react-icons/fa';
@@ -6,24 +7,13 @@ import { FaYelp } from 'react-icons/fa';
 const AppNavbar = () => {
     const navigate = useNavigate();
     // Mock auth state for UI development
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [userRole, setUserRole] = useState('user'); // 'user' or 'owner'
+    const isAuthenticated = !!localStorage.getItem('auth_token');
+    const userRole = localStorage.getItem('auth_role') || 'user';
 
-    const handleLogout = () => {
-        setIsAuthenticated(false);
-        navigate('/');
-    };
-
-    const handleMockLoginUser = () => {
-        setIsAuthenticated(true);
-        setUserRole('user');
-    };
-
-    const handleMockLoginOwner = () => {
-        setIsAuthenticated(true);
-        setUserRole('owner');
-    };
-
+const handleLogout = () => {
+    clearAuthData();
+    navigate('/');
+};
     return (
         <Navbar bg="white" expand="lg" sticky="top" className="shadow-sm">
             <Container>
@@ -37,9 +27,8 @@ const AppNavbar = () => {
                     </Nav>
                     <Nav>
                         {!isAuthenticated ? (
-                            <div className="d-flex gap-2 align-items-center">
-                                <Button variant="outline-dark" size="sm" onClick={handleMockLoginUser}>Login User</Button>
-                                <Button variant="outline-dark" size="sm" onClick={handleMockLoginOwner}>Login Owner</Button>
+                           <div className="d-flex gap-2 align-items-center">
+                                <Button variant="outline-dark" as={Link} to="/auth" size="sm">Log In</Button>
                                 <Button variant="primary" as={Link} to="/auth">Sign Up</Button>
                             </div>
                         ) : (

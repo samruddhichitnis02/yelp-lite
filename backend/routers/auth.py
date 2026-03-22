@@ -110,6 +110,5 @@ def owner_login(payload: OwnerLoginRequest, db: Session = Depends(get_db)):
             "id": owner.id,
             "name": owner.name,
             "email": owner.email,
-            "business_name": owner.business_name,
         },
     }

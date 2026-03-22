@@ -106,9 +106,9 @@ export const getStoredOwner = () => {
 
 export default {
   signupUser,
-  loginUser,
   signupOwner,
   loginOwner,
+  loginUser,
   saveAuthData,
   clearAuthData,
   getAuthToken,
