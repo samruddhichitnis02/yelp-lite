@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { FaStore, FaMapMarkerAlt, FaInfoCircle, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ const CUISINES = [
 
 const AddRestaurantPage = () => {
     const navigate = useNavigate();
+    const photoInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -39,9 +40,24 @@ const AddRestaurantPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [photos, setPhotos] = useState([]);
+    const [photoPreviews, setPhotoPreviews] = useState([]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handlePhotoSelect = (e) => {
+        const files = Array.from(e.target.files);
+        setPhotos(prev => [...prev, ...files]);
+        const previews = files.map(f => URL.createObjectURL(f));
+        setPhotoPreviews(prev => [...prev, ...previews]);
+        e.target.value = '';
+    };
+
+    const removePhoto = (index) => {
+        setPhotos(prev => prev.filter((_, i) => i !== index));
+        setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e) => {
@@ -50,7 +66,7 @@ const AddRestaurantPage = () => {
         setSuccess('');
         setLoading(true);
         try {
-            await api.post('/restaurants/', {
+            const res = await api.post('/restaurants/', {
                 name: formData.name,
                 cuisine: formData.cuisine,
                 address: formData.address,
@@ -64,8 +80,20 @@ const AddRestaurantPage = () => {
                 amenities: formData.amenities,
                 price_range: formData.price_range,
             });
+
+            // Upload photos if any were selected
+            if (photos.length > 0) {
+                for (const photo of photos) {
+                    const fd = new FormData();
+                    fd.append('file', photo);
+                    await api.post(`/restaurants/${res.data.id}/photos`, fd, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                }
+            }
+
             setSuccess('Restaurant listing created successfully!');
-            setTimeout(() => navigate('/'), 2000);
+            setTimeout(() => navigate(`/restaurant/${res.data.id}`), 2000);
         } catch (err) {
             setError(err?.response?.data?.detail || 'Failed to create restaurant. Please try again.');
         } finally {
@@ -248,7 +276,7 @@ const AddRestaurantPage = () => {
                                     </Col>
                                 </Row>
 
-                                {/* Details */}
+                                {/* Additional Details */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2 mt-5">
                                     <FaImage className="me-2 text-muted" /> Additional Details
                                 </h5>
@@ -285,6 +313,59 @@ const AddRestaurantPage = () => {
                                         </Form.Group>
                                     </Col>
                                 </Row>
+
+                                {/* Photos */}
+                                <h5 className="fw-bold mb-3 border-bottom pb-2 mt-5">
+                                    <FaImage className="me-2 text-muted" /> Photos
+                                    <span className="text-muted fw-normal fs-6 ms-2">(Optional)</span>
+                                </h5>
+
+                                <div className="mb-4">
+                                    <Button
+                                        variant="outline-secondary"
+                                        type="button"
+                                        onClick={() => photoInputRef.current.click()}
+                                    >
+                                        <FaImage className="me-2" /> Add Photos
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        ref={photoInputRef}
+                                        style={{ display: 'none' }}
+                                        onChange={handlePhotoSelect}
+                                    />
+                                    <Form.Text className="text-muted ms-3">
+                                        You can select multiple photos
+                                    </Form.Text>
+
+                                    {photoPreviews.length > 0 && (
+                                        <Row xs={3} md={4} className="g-2 mt-2">
+                                            {photoPreviews.map((src, idx) => (
+                                                <Col key={idx}>
+                                                    <div className="position-relative rounded overflow-hidden" style={{ height: '100px' }}>
+                                                        <img
+                                                            src={src}
+                                                            alt=""
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                        <Button
+                                                            variant="danger"
+                                                            size="sm"
+                                                            type="button"
+                                                            className="position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                            style={{ width: '22px', height: '22px', fontSize: '14px' }}
+                                                            onClick={() => removePhoto(idx)}
+                                                        >
+                                                            ×
+                                                        </Button>
+                                                    </div>
+                                                </Col>
+                                            ))}
+                                        </Row>
+                                    )}
+                                </div>
 
                                 <div className="d-flex justify-content-end mt-4 gap-3">
                                     <Button
