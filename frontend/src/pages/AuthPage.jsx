@@ -12,7 +12,7 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { signupUser, saveAuthData } from '../services/auth';
+import { signupUser, signupOwner, saveAuthData } from '../services/auth';
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,6 +21,7 @@ const AuthPage = () => {
     name: '',
     email: '',
     password: '',
+    location: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,6 +33,7 @@ const AuthPage = () => {
       name: '',
       email: '',
       password: '',
+      location: '',
     });
     setError('');
   };
@@ -63,15 +65,19 @@ const AuthPage = () => {
       return;
     }
 
-    if (userType !== 'user') {
-      setError('Owner signup integration will be added separately.');
-      return;
-    }
 
     try {
       setLoading(true);
 
-      const data = await signupUser({
+      const data =
+      userType === 'owner'
+    ? await signupOwner({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        location: formData.location,
+      })
+    : await signupUser({
         name: formData.name,
         email: formData.email,
         password: formData.password,
@@ -130,6 +136,20 @@ const AuthPage = () => {
                         name="name"
                         placeholder="John Doe"
                         value={formData.name}
+                        onChange={handleChange}
+                        required
+                      />
+                    </Form.Group>
+                  )}
+
+                  {!isLogin && userType === 'owner' && (
+                    <Form.Group className="mb-4" controlId="formOwnerLocation">
+                      <Form.Label>Restaurant Location</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="location"
+                        placeholder="e.g. San Jose, CA"
+                        value={formData.location}
                         onChange={handleChange}
                         required
                       />

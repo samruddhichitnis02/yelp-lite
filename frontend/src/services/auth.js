@@ -20,6 +20,17 @@ export const signupUser = async ({ name, email, password, location }) => {
   return response.data;
 };
 
+export const signupOwner = async ({ name, email, password, business_name, location }) => {
+  const response = await api.post('/auth/owner/signup', {
+    name: name.trim(),
+    email: email.trim(),
+    password,
+    location: location.trim(),
+  });
+
+  return response.data;
+};
+
 /**
  * User login
  * Backend expects OAuth2 form fields:

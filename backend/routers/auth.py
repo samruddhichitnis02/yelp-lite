@@ -75,7 +75,7 @@ def owner_signup(payload: OwnerSignupRequest, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        business_name=payload.business_name,
+        location=payload.location,
     )
     db.add(owner)
     db.commit()
@@ -90,7 +90,7 @@ def owner_signup(payload: OwnerSignupRequest, db: Session = Depends(get_db)):
             "id": owner.id,
             "name": owner.name,
             "email": owner.email,
-            "business_name": owner.business_name,
+            "location": owner.location,
         },
     }
 
