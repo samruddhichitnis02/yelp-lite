@@ -25,7 +25,6 @@ def user_signup(payload: UserSignupRequest, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        location=payload.location,
     )
     db.add(user)
     db.commit()
@@ -40,7 +39,6 @@ def user_signup(payload: UserSignupRequest, db: Session = Depends(get_db)):
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "location": user.location,
             "profile_pic": user.profile_pic,
         },
     }
@@ -62,7 +60,6 @@ def user_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "location": user.location,
             "profile_pic": user.profile_pic,
         },
     }
