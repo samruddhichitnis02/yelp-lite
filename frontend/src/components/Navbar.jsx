@@ -23,8 +23,10 @@ const handleLogout = () => {
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
+                    {userRole !== 'owner' && (
                         <Nav.Link as={Link} to="/">Explore</Nav.Link>
-                    </Nav>
+                    )}
+                </Nav>
                     <Nav>
                         {!isAuthenticated ? (
                            <div className="d-flex gap-2 align-items-center">
@@ -47,6 +49,8 @@ const handleLogout = () => {
                                     ) : (
                                         <>
                                             <Dropdown.Item as={Link} to="/owner/dashboard">Owner Dashboard</Dropdown.Item>
+                                            <Dropdown.Item as={Link} to="/owner/profile">Restaurant Profile</Dropdown.Item>
+                                            <Dropdown.Item as={Link} to="/owner/claim">Claim a Restaurant</Dropdown.Item>
                                             <Dropdown.Item as={Link} to="/add-restaurant">Add Restaurant Listing</Dropdown.Item>
                                         </>
                                     )}

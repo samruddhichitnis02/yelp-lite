@@ -54,6 +54,36 @@ def create_restaurant(
     db.refresh(restaurant)
     return restaurant
 
+@router.post("/owner/create", response_model=RestaurantPublic)
+def owner_create_restaurant(
+    payload: RestaurantCreateRequest,
+    db: Session = Depends(get_db),
+    current_owner: Owner = Depends(get_current_owner),
+):
+    restaurant = Restaurant(
+        owner_id=current_owner.id,
+        created_by_user_id=None,
+        name=payload.name,
+        address=payload.address,
+        city=payload.city,
+        state=payload.state,
+        zip_code=payload.zip_code,
+        cuisine=payload.cuisine,
+        price_range=payload.price_range,
+        phone=payload.phone,
+        website=payload.website,
+        hours_of_operation=payload.hours_of_operation,
+        amenities=payload.amenities,
+        description=payload.description,
+        image=payload.image,
+        avg_rating=0.0,
+    )
+    db.add(restaurant)
+    db.commit()
+    db.refresh(restaurant)
+    return restaurant
+
+
 @router.get("/search", response_model=list[RestaurantPublic])
 def search_restaurants(
     name: Optional[str] = None,
@@ -266,40 +296,40 @@ def claim_restaurant(
     return restaurant
 
 
-@router.get("/owner/dashboard", response_model=OwnerDashboardResponse)
+@router.get("/owner/dashboard")
 def get_owner_dashboard(
     db: Session = Depends(get_db),
     current_owner: Owner = Depends(get_current_owner),
 ):
-    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+    restaurants = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).all()
 
-    if not restaurant:
+    if not restaurants:
         raise HTTPException(status_code=404, detail="No restaurant found for this owner")
 
-    review_count = (
-        db.query(Review)
-        .filter(Review.restaurant_id == restaurant.id)
-        .count()
-    )
+    total_review_count = 0
+    total_favourites_count = 0
+    all_recent_reviews = []
 
-    favourites_count = (
-        db.query(Favourite)
-        .filter(Favourite.restaurant_id == restaurant.id)
-        .count()
-    )
+    for restaurant in restaurants:
+        review_count = db.query(Review).filter(Review.restaurant_id == restaurant.id).count()
+        favourites_count = db.query(Favourite).filter(Favourite.restaurant_id == restaurant.id).count()
+        recent_reviews = (
+            db.query(Review)
+            .filter(Review.restaurant_id == restaurant.id)
+            .order_by(Review.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        total_review_count += review_count
+        total_favourites_count += favourites_count
+        all_recent_reviews.extend(recent_reviews)
 
-    recent_reviews = (
-        db.query(Review)
-        .filter(Review.restaurant_id == restaurant.id)
-        .order_by(Review.created_at.desc())
-        .limit(5)
-        .all()
-    )
+    avg_rating = sum(r.avg_rating for r in restaurants) / len(restaurants)
 
     return {
-        "restaurant": restaurant,
-        "review_count": review_count,
-        "favourites_count": favourites_count,
-        "avg_rating": restaurant.avg_rating,
-        "recent_reviews": recent_reviews,
+        "restaurants": restaurants,
+        "review_count": total_review_count,
+        "favourites_count": total_favourites_count,
+        "avg_rating": round(avg_rating, 1),
+        "recent_reviews": sorted(all_recent_reviews, key=lambda x: x.created_at, reverse=True)[:5],
     }

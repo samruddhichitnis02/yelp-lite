@@ -1,6 +1,9 @@
+import ClaimRestaurantPage from './pages/ClaimRestaurantPage';
+import OwnerProfilePage from './pages/OwnerProfilePage';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AppNavbar from './components/Navbar';
+
 
 import ExplorePage from './pages/ExplorePage';
 import RestaurantDetailsPage from './pages/RestaurantDetailsPage';
@@ -35,6 +38,8 @@ function App() {
             {/* Owner Routes */}
             <Route path="/owner/dashboard" element={<OwnerDashboard />} />
             <Route path="/add-restaurant" element={<AddRestaurantPage />} />
+            <Route path="/owner/profile" element={<OwnerProfilePage />} />
+            <Route path="/owner/claim" element={<ClaimRestaurantPage />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
