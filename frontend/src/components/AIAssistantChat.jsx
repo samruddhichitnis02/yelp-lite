@@ -24,6 +24,18 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         scrollToBottom();
     }, [messages, isTyping]);
 
+        useEffect(() => {
+        if (isOpen) {
+            setMessages([
+                {
+                    role: 'ai',
+                    text: "Hi there! I'm your Yelp AI Assistant. Tell me what you're craving, and I'll find the perfect spot based on your preferences!",
+                    restaurants: []
+                }
+            ]);
+        }
+    }, [isOpen]);
+
     // Build conversation history for the backend (only user/ai turns, no restaurants)
     const buildHistory = (msgs) => {
         return msgs
