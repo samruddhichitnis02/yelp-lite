@@ -160,33 +160,7 @@ const AuthPage = () => {
                     />
                   </Form.Group>
 
-                  {!isLogin && userType === 'user' && (
-                    <Form.Group className="mb-4" controlId="formUserLocation">
-                      <Form.Label>Location</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="location"
-                        placeholder="e.g. San Francisco"
-                        value={formData.location}
-                        onChange={handleChange}
-                        required
-                      />
-                    </Form.Group>
-                  )}
-
-                  {!isLogin && userType === 'owner' && (
-                    <Form.Group className="mb-4" controlId="formRestaurantLocation">
-                      <Form.Label>Restaurant Location (City/Zip)</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="location"
-                        placeholder="e.g. San Francisco, 94105"
-                        value={formData.location}
-                        onChange={handleChange}
-                        required
-                      />
-                    </Form.Group>
-                  )}
+                  
 
                   <Button
                     variant="primary"
