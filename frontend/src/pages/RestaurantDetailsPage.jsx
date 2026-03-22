@@ -32,6 +32,7 @@ const RestaurantDetailsPage = () => {
     const [favouriteLoading, setFavouriteLoading] = useState(false);
     const [favouriteSuccess, setFavouriteSuccess] = useState('');
     const [photos, setPhotos] = useState([]);
+    const [reviewPhotos, setReviewPhotos] = useState({});
 
     const isLoggedIn = !!localStorage.getItem('auth_token');
     const role = localStorage.getItem('auth_role');
@@ -42,12 +43,27 @@ const RestaurantDetailsPage = () => {
         try {
             const res = await api.get(`/restaurants/${id}`);
             setRestaurant(res.data);
-        try {
-            const photosRes = await api.get(`/restaurants/${id}/photos`);
-            setPhotos(photosRes.data);
-        } catch {
-            setPhotos([]);
-        }
+
+            // Fetch restaurant gallery photos
+            try {
+                const photosRes = await api.get(`/restaurants/${id}/photos`);
+                setPhotos(photosRes.data);
+            } catch {
+                setPhotos([]);
+            }
+
+            // Fetch photos for each review
+            try {
+                const reviewPhotoMap = {};
+                for (const review of res.data.reviews || []) {
+                    try {
+                        const rp = await api.get(`/reviews/${review.id}/photos`);
+                        if (rp.data.length > 0) reviewPhotoMap[review.id] = rp.data;
+                    } catch { }
+                }
+                setReviewPhotos(reviewPhotoMap);
+            } catch { }
+
         } catch (err) {
             setError('Failed to load restaurant details.');
         } finally {
@@ -185,10 +201,8 @@ const RestaurantDetailsPage = () => {
                                 </Button>
                             )}
                         </div>
-                        
 
-
-                        {/* Photo Gallery */}
+                        {/* Restaurant Photo Gallery */}
                         {photos.length > 0 && (
                             <div className="mb-5">
                                 <h3 className="fw-bold mb-3">Photos</h3>
@@ -253,6 +267,23 @@ const RestaurantDetailsPage = () => {
                                                 </div>
                                             </div>
                                             <Card.Text>{review.comment}</Card.Text>
+
+                                            {/* Review Photos */}
+                                            {reviewPhotos[review.id] && reviewPhotos[review.id].length > 0 && (
+                                                <div className="d-flex flex-wrap gap-2 mt-2">
+                                                    {reviewPhotos[review.id].map(photo => (
+                                                        <img
+                                                            key={photo.id}
+                                                            src={`http://localhost:8000/${photo.photo_path}`}
+                                                            alt="Review"
+                                                            className="rounded"
+                                                            style={{ height: '80px', width: '80px', objectFit: 'cover', cursor: 'pointer' }}
+                                                            onClick={() => window.open(`http://localhost:8000/${photo.photo_path}`, '_blank')}
+                                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </Card>
                                     );
                                 })
