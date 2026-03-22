@@ -84,7 +84,11 @@ const AuthPage = () => {
       });
 
       saveAuthData(data);
+    if (userType === 'owner') {
+      navigate('/owner/dashboard');
+    } else {
       navigate('/profile');
+    }
     } catch (err) {
       setError(err?.response?.data?.detail || 'Signup failed. Please try again.');
     } finally {

@@ -30,6 +30,13 @@ export const signupOwner = async ({ name, email, password, business_name, locati
 
   return response.data;
 };
+export const loginOwner = async ({ email, password }) => {
+  const response = await api.post('/auth/owner/login', {
+    email: email.trim(),
+    password,
+  });
+  return response.data;
+};
 
 /**
  * User login
@@ -100,6 +107,8 @@ export const getStoredOwner = () => {
 export default {
   signupUser,
   loginUser,
+  signupOwner,
+  loginOwner,
   saveAuthData,
   clearAuthData,
   getAuthToken,
