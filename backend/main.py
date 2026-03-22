@@ -1,3 +1,4 @@
+from routers.restaurant_photos import router as restaurant_photos_router
 from routers.restaurants import router as restaurants_router
 from routers.favourites import router as favourites_router
 from routers.reviews import router as reviews_router
@@ -35,6 +36,7 @@ app.include_router(users_router)
 app.include_router(reviews_router)
 app.include_router(favourites_router)
 app.include_router(chatbot_router)
+app.include_router(restaurant_photos_router)
 
 # Mount the "uploads" folder so uploaded images (profile pictures, restaurant images)
 # can be accessed publicly via URLs like http://localhost:8000/uploads/filename.jpg

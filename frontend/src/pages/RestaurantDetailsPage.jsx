@@ -31,6 +31,7 @@ const RestaurantDetailsPage = () => {
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [favouriteLoading, setFavouriteLoading] = useState(false);
     const [favouriteSuccess, setFavouriteSuccess] = useState('');
+    const [photos, setPhotos] = useState([]);
 
     const isLoggedIn = !!localStorage.getItem('auth_token');
     const role = localStorage.getItem('auth_role');
@@ -41,6 +42,12 @@ const RestaurantDetailsPage = () => {
         try {
             const res = await api.get(`/restaurants/${id}`);
             setRestaurant(res.data);
+        try {
+            const photosRes = await api.get(`/restaurants/${id}/photos`);
+            setPhotos(photosRes.data);
+        } catch {
+            setPhotos([]);
+        }
         } catch (err) {
             setError('Failed to load restaurant details.');
         } finally {
@@ -178,6 +185,32 @@ const RestaurantDetailsPage = () => {
                                 </Button>
                             )}
                         </div>
+                        
+
+
+                        {/* Photo Gallery */}
+                        {photos.length > 0 && (
+                            <div className="mb-5">
+                                <h3 className="fw-bold mb-3">Photos</h3>
+                                <Row xs={2} md={3} className="g-2">
+                                    {photos.map((photo, idx) => (
+                                        <Col key={photo.id} className={idx === 0 ? 'col-12 col-md-6' : ''}>
+                                            <div
+                                                className="rounded overflow-hidden"
+                                                style={{ height: idx === 0 ? '300px' : '150px' }}
+                                            >
+                                                <img
+                                                    src={`http://localhost:8000/${photo.photo_path}`}
+                                                    alt={`Photo ${idx + 1}`}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                            </div>
+                        )}
 
                         {/* Description */}
                         <h3 className="fw-bold mb-3">Overview</h3>

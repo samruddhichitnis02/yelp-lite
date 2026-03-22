@@ -1,0 +1,1 @@
+from models.restaurant_photos import RestaurantPhoto

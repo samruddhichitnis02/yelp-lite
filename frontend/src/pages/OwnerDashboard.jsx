@@ -104,16 +104,8 @@ const OwnerDashboard = () => {
                 <Col lg={7} className="mb-4">
                     <Card className="shadow-sm border-0 h-100">
                         <Card.Header className="bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-    <h5 className="mb-0 fw-bold">Recent Reviews</h5>
-    <Button
-        variant="outline-primary"
-        size="sm"
-        onClick={() => navigate(`/restaurant/${dashboardData?.restaurants?.[0]?.id}`)}
-        disabled={!dashboardData?.restaurants?.length}
-    >
-        View All
-    </Button>
-</Card.Header>
+                            <h5 className="mb-0 fw-bold">My Restaurants</h5>
+                        </Card.Header>
                         <Card.Body className="p-0">
                             <Table responsive hover className="mb-0 align-middle">
                                 <thead className="bg-light">
@@ -143,14 +135,14 @@ const OwnerDashboard = () => {
                                                         variant="outline-primary"
                                                         size="sm"
                                                         className="me-2"
-                                                        onClick={() => navigate('/owner/profile')}
+                                                        onClick={() => navigate(`/owner/profile?id=${r.id}`)}
                                                     >
                                                         Edit
                                                     </Button>
                                                     <Button
                                                         variant="outline-secondary"
                                                         size="sm"
-                                                        onClick={() => navigate('/owner/profile')}
+                                                        onClick={() => navigate(`/restaurant/${r.id}`)}
                                                     >
                                                         View
                                                     </Button>
@@ -175,6 +167,14 @@ const OwnerDashboard = () => {
                     <Card className="shadow-sm border-0 h-100">
                         <Card.Header className="bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                             <h5 className="mb-0 fw-bold">Recent Reviews</h5>
+                            <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => navigate(`/restaurant/${dashboardData?.restaurants?.[0]?.id}`)}
+                                disabled={!dashboardData?.restaurants?.length}
+                            >
+                                View All
+                            </Button>
                         </Card.Header>
                         <Card.Body className="p-0">
                             <div className="list-group list-group-flush">
@@ -200,7 +200,6 @@ const OwnerDashboard = () => {
                                                 </Badge>
                                             </div>
                                             <p className="mb-0 mt-2 small text-dark">"{review.comment}"</p>
-                                            <small className="text-muted fst-italic">Read-only</small>
                                         </div>
                                     ))
                                 ) : (
