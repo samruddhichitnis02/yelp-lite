@@ -1,9 +1,10 @@
 import ClaimRestaurantPage from './pages/ClaimRestaurantPage';
 import OwnerProfilePage from './pages/OwnerProfilePage';
+import FavouritesPage from './pages/FavouritesPage';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AppNavbar from './components/Navbar';
-
+import HistoryPage from './pages/HistoryPage';
 
 import ExplorePage from './pages/ExplorePage';
 import RestaurantDetailsPage from './pages/RestaurantDetailsPage';
@@ -33,7 +34,8 @@ function App() {
 
             {/* User Routes */}
             <Route path="/profile" element={<UserProfilePage />} />
-            <Route path="/history" element={<div className="container mt-5"><h1>User History</h1></div>} />
+            <Route path="/favourites" element={<FavouritesPage />} />
+            <Route path="/history" element={<HistoryPage />} />
 
             {/* Owner Routes */}
             <Route path="/owner/dashboard" element={<OwnerDashboard />} />

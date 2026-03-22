@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { clearAuthData } from '../services/auth';
 import { Navbar, Nav, Container, Button, Dropdown } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,14 +6,14 @@ import { FaYelp } from 'react-icons/fa';
 
 const AppNavbar = () => {
     const navigate = useNavigate();
-    // Mock auth state for UI development
     const isAuthenticated = !!localStorage.getItem('auth_token');
     const userRole = localStorage.getItem('auth_role') || 'user';
 
-const handleLogout = () => {
-    clearAuthData();
-    navigate('/');
-};
+    const handleLogout = () => {
+        clearAuthData();
+        navigate('/');
+    };
+
     return (
         <Navbar bg="white" expand="lg" sticky="top" className="shadow-sm">
             <Container>
@@ -23,13 +23,13 @@ const handleLogout = () => {
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
-                    {userRole !== 'owner' && (
-                        <Nav.Link as={Link} to="/">Explore</Nav.Link>
-                    )}
-                </Nav>
+                        {userRole !== 'owner' && (
+                            <Nav.Link as={Link} to="/">Explore</Nav.Link>
+                        )}
+                    </Nav>
                     <Nav>
                         {!isAuthenticated ? (
-                           <div className="d-flex gap-2 align-items-center">
+                            <div className="d-flex gap-2 align-items-center">
                                 <Button variant="outline-dark" as={Link} to="/auth" size="sm">Log In</Button>
                                 <Button variant="primary" as={Link} to="/auth">Sign Up</Button>
                             </div>
@@ -43,7 +43,8 @@ const handleLogout = () => {
                                     {userRole === 'user' ? (
                                         <>
                                             <Dropdown.Item as={Link} to="/profile">Profile & Preferences</Dropdown.Item>
-                                            <Dropdown.Item as={Link} to="/history">History & Favourites</Dropdown.Item>
+                                            <Dropdown.Item as={Link} to="/favourites">My Favourites</Dropdown.Item>
+                                            <Dropdown.Item as={Link} to="/history">History</Dropdown.Item>
                                             <Dropdown.Item as={Link} to="/add-restaurant">Add Restaurant</Dropdown.Item>
                                         </>
                                     ) : (

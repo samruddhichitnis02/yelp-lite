@@ -1,6 +1,7 @@
 from schemas.review import ReviewPublic
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from datetime import datetime
 
 class RestaurantCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -39,6 +40,7 @@ class RestaurantPublic(BaseModel):
     description: Optional[str] = None
     image: Optional[str] = None
     avg_rating: float
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
