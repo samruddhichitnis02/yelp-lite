@@ -4,9 +4,36 @@ import { FaSearch, FaTimes } from 'react-icons/fa';
 import RestaurantCard from '../components/RestaurantCard';
 import api from '../services/api';
 
-const CUISINES = ['Italian', 'Japanese', 'American', 'Vegan', 'Mexican', 'Chinese', 'Indian', 'Thai', 'Korean', 'BBQ', 'Mediterranean', 'French', 'Vietnamese', 'Brazilian'];
+// const CUISINES = ['Italian', 'Japanese', 'American', 'Vegan', 'Mexican', 'Chinese', 'Indian', 'Thai', 'Korean', 'BBQ', 'Mediterranean', 'French', 'Vietnamese', 'Brazilian'];
 
-const KEYWORDS = ['wifi', 'outdoor seating', 'parking', 'family-friendly', 'romantic', 'quiet', 'reservations'];
+const CUISINES = [
+    { label: 'Italian', emoji: '🍝' },
+    { label: 'Japanese', emoji: '🍣' },
+    { label: 'American', emoji: '🍔' },
+    { label: 'Vegan', emoji: '🥗' },
+    { label: 'Mexican', emoji: '🌮' },
+    { label: 'Chinese', emoji: '🥡' },
+    { label: 'Indian', emoji: '🍛' },
+    { label: 'Thai', emoji: '🍜' },
+    { label: 'Korean', emoji: '🥩' },
+    { label: 'BBQ', emoji: '🔥' },
+    { label: 'Mediterranean', emoji: '🫒' },
+    { label: 'French', emoji: '🥐' },
+    { label: 'Vietnamese', emoji: '🍲' },
+    { label: 'Brazilian', emoji: '🥩' },
+];
+
+// const KEYWORDS = ['wifi', 'outdoor seating', 'parking', 'family-friendly', 'romantic', 'quiet', 'reservations'];
+
+const KEYWORDS = [
+    { label: 'wifi', emoji: '📶' },
+    { label: 'outdoor seating', emoji: '🌿' },
+    { label: 'parking', emoji: '🅿️' },
+    { label: 'family-friendly', emoji: '👨‍👩‍👧' },
+    { label: 'romantic', emoji: '🕯️' },
+    { label: 'quiet', emoji: '🤫' },
+    { label: 'reservations', emoji: '📅' },
+];
 
 const ExplorePage = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -80,91 +107,114 @@ const ExplorePage = () => {
 
     return (
         <div className="explore-page">
+            <style>{`
+                .hero-input::placeholder { color: rgba(255,255,255,0.4) !important; }
+                .hero-input { color: #fff !important; }
+                .pill-btn { transition: all 0.18s ease; }
+                .pill-btn:hover { opacity: 1 !important; transform: translateY(-1px); }
+            `}</style>
+
             {/* Hero Section */}
-            <div className="bg-light py-5 mb-5 border-bottom" style={{ backgroundImage: 'linear-gradient(to right, #f8f9fa, #e9ecef)' }}>
+            <div style={{
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                padding: '56px 0 44px',
+                marginBottom: '40px'
+            }}>
                 <Container>
                     <Row className="justify-content-center text-center">
-                        <Col md={9}>
-                            <h1 className="fw-bold mb-3">Discover Best Restaurants Around You</h1>
-                            <p className="lead text-muted mb-4">Find your new favorite culinary experience. Be inspired.</p>
+                        <Col md={10} lg={8}>
+                            <h1 className="fw-bold mb-2" style={{ color: '#fff', fontSize: '2.6rem', letterSpacing: '-0.5px' }}>
+                                Discover the Best <span style={{ color: '#e94560' }}>Restaurants</span> Near You
+                            </h1>
+                            <p className="mb-4" style={{ color: 'rgba(255,255,255,0.55)', fontSize: '1.05rem' }}>
+                                Find your next favorite culinary experience
+                            </p>
 
                             <Form onSubmit={handleSearch}>
                                 {/* Main search bar */}
-                                <InputGroup className="mb-3 shadow-sm rounded-pill overflow-hidden" size="lg">
+                                <div className="d-flex gap-2 mb-3" style={{
+                                    background: 'rgba(255,255,255,0.07)',
+                                    borderRadius: '14px',
+                                    padding: '10px',
+                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
                                     <Form.Control
                                         placeholder="Search by restaurant name..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="border-0 px-4"
+                                        className="hero-input border-0 flex-grow-1"
+                                        style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '11px 18px', fontSize: '1rem' }}
                                     />
-                                    <Button type="submit" variant="primary" className="px-5">
-                                        <FaSearch className="me-1" /> Search
+                                    <Button type="submit" style={{
+                                        background: '#e94560', border: 'none', borderRadius: '8px',
+                                        padding: '11px 26px', fontWeight: '600', whiteSpace: 'nowrap'
+                                    }}>
+                                        <FaSearch className="me-2" />Search
                                     </Button>
-                                </InputGroup>
+                                </div>
 
-                                {/* Cuisine + Location filters */}
-                                <Row className="g-2 mb-3">
-                                    <Col md={4}>
-                                        <Form.Control
-                                            placeholder="Cuisine type (e.g. Italian)"
-                                            value={cuisine}
-                                            onChange={(e) => setCuisine(e.target.value)}
-                                            className="rounded-pill px-4 border"
-                                        />
-                                    </Col>
-                                    <Col md={4}>
-                                        <Form.Control
-                                            placeholder="City or zip code"
-                                            value={location}
-                                            onChange={(e) => setLocation(e.target.value)}
-                                            className="rounded-pill px-4 border"
-                                        />
-                                    </Col>
-                                    <Col md={4}>
-                                        <Form.Control
-                                            placeholder="Keyword (e.g. wifi, quiet)"
-                                            value={keyword}
-                                            onChange={(e) => setKeyword(e.target.value)}
-                                            className="rounded-pill px-4 border"
-                                        />
-                                    </Col>
+                                {/* Secondary filters */}
+                                <Row className="g-2 mb-4">
+                                    {[
+                                        { placeholder: '🍽  Cuisine type (e.g. Italian)', value: cuisine, setter: setCuisine },
+                                        { placeholder: '📍  City or zip code', value: location, setter: setLocation },
+                                        { placeholder: '🔑  Keyword (e.g. wifi, quiet)', value: keyword, setter: setKeyword },
+                                    ].map((f, i) => (
+                                        <Col md={4} key={i}>
+                                            <Form.Control
+                                                placeholder={f.placeholder}
+                                                value={f.value}
+                                                onChange={(e) => f.setter(e.target.value)}
+                                                className="hero-input"
+                                                style={{
+                                                    background: 'rgba(255,255,255,0.07)',
+                                                    border: '1px solid rgba(255,255,255,0.13)',
+                                                    borderRadius: '10px',
+                                                    padding: '10px 16px',
+                                                }}
+                                            />
+                                        </Col>
+                                    ))}
                                 </Row>
                             </Form>
 
-                            {/* Cuisine quick badges */}
-                            <div className="mb-2">
-                                <small className="text-muted fw-bold me-2">CUISINE:</small>
-                                <div className="d-inline-flex flex-wrap gap-2">
+                            {/* Cuisine pills */}
+                            <div className="mb-3">
+                                <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.2)' }} />
+                                    <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.68rem', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Cuisine</span>
+                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.2)' }} />
+                                </div>
+                                <div className="d-flex flex-wrap justify-content-center gap-2">
                                     {CUISINES.map(c => (
-                                        <Badge
-                                            key={c}
-                                            bg={cuisine === c ? 'primary' : 'white'}
-                                            text={cuisine === c ? 'white' : 'dark'}
-                                            className="border px-3 py-2 rounded-pill"
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => handleCuisineClick(c)}
-                                        >
-                                            {c}
-                                        </Badge>
+                                        <button key={c.label} type="button" className="pill-btn" onClick={() => handleCuisineClick(c.label)} style={{
+                                            background: cuisine === c.label ? '#e94560' : 'rgba(255,255,255,0.07)',
+                                            border: `1px solid ${cuisine === c.label ? '#e94560' : 'rgba(255,255,255,0.15)'}`,
+                                            color: cuisine === c.label ? '#fff' : 'rgba(255,255,255,0.72)',
+                                            borderRadius: '20px', padding: '6px 15px',
+                                            fontSize: '0.82rem', fontWeight: '500', cursor: 'pointer',
+                                        }}>{c.emoji} {c.label}</button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Keyword quick badges */}
-                            <div className="mt-2">
-                                <small className="text-muted fw-bold me-2">KEYWORDS:</small>
-                                <div className="d-inline-flex flex-wrap gap-2">
+                            {/* Keyword pills */}
+                            <div>
+                                <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.2)' }} />
+                                    <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.68rem', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Keywords</span>
+                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.2)' }} />
+                                </div>
+                                <div className="d-flex flex-wrap justify-content-center gap-2">
                                     {KEYWORDS.map(k => (
-                                        <Badge
-                                            key={k}
-                                            bg={keyword === k ? 'success' : 'white'}
-                                            text={keyword === k ? 'white' : 'dark'}
-                                            className="border px-3 py-2 rounded-pill"
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => handleKeywordClick(k)}
-                                        >
-                                            {k}
-                                        </Badge>
+                                        <button key={k.label} type="button" className="pill-btn" onClick={() => handleKeywordClick(k.label)} style={{
+                                            background: keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.06)',
+                                            border: `1px solid ${keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.12)'}`,
+                                            color: keyword === k.label ? '#fff' : 'rgba(255,255,255,0.6)',
+                                            borderRadius: '20px', padding: '6px 15px',
+                                            fontSize: '0.82rem', fontWeight: '500', cursor: 'pointer',
+                                        }}>{k.emoji} {k.label}</button>
                                     ))}
                                 </div>
                             </div>
