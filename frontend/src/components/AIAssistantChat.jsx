@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, Form, Button, InputGroup, Badge, Spinner } from 'react-bootstrap';
 import { FaRobot, FaPaperPlane, FaTimes, FaUser, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-//
+import api from '../services/api';
+
 const AIAssistantChat = ({ isOpen, onClose }) => {
     const [messages, setMessages] = useState([
         {
@@ -23,42 +24,57 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    const handleSend = (e) => {
+    // Build conversation history for the backend (only user/ai turns, no restaurants)
+    const buildHistory = (msgs) => {
+        return msgs
+            .filter(m => m.role === 'user' || m.role === 'ai')
+            .map(m => ({
+                role: m.role === 'ai' ? 'assistant' : 'user',
+                content: m.text,
+            }));
+    };
+
+    const handleSend = async (e) => {
         e.preventDefault();
         if (!input.trim()) return;
 
-        const userMessage = { role: 'user', text: input };
-        setMessages(prev => [...prev, userMessage]);
+        const userText = input.trim();
+        const userMessage = { role: 'user', text: userText };
+        const updatedMessages = [...messages, userMessage];
+
+        setMessages(updatedMessages);
         setInput('');
         setIsTyping(true);
 
-        // Mock AI Response with fake lag
-        setTimeout(() => {
-            let aiResponseText = '';
-            let recommendedRestaurants = [];
+        try {
+            const history = buildHistory(messages); // history before this new message
+            const res = await api.post('/ai-assistant/chat', {
+                message: userText,
+                conversation_history: history,
+            });
 
-            if (userMessage.text.toLowerCase().includes('vegan')) {
-                aiResponseText = "Here are some casual vegan-friendly options based on your preferences:";
-                recommendedRestaurants = [
-                    { id: 4, name: "Green Leaf Cafe", rating: 4.9, price: "$$", desc: "100% vegan menu, casual atmosphere" },
-                    { id: 7, name: "Veggie Delight", rating: 4.5, price: "$", desc: "Extensive vegan options, relaxed setting" }
-                ];
-            } else if (userMessage.text.toLowerCase().includes('dinner tonight') || userMessage.text.toLowerCase().includes('italian')) {
-                aiResponseText = "Based on your preferences for Italian cuisine and mid-range pricing, I recommend:";
-                recommendedRestaurants = [
-                    { id: 1, name: "Pasta Paradise", rating: 4.8, price: "$$", desc: "Matches your Italian preference and budget" },
-                    { id: 8, name: "Trattoria Roma", rating: 4.7, price: "$$", desc: "Highly rated, Italian, within your price range" }
-                ];
-            } else {
-                aiResponseText = "I found these highly-rated places nearby that match your general preferences:";
-                recommendedRestaurants = [
-                    { id: 2, name: "Sushi Sakura", rating: 4.6, price: "$$$", desc: "Premium Japanese cuisine" }
-                ];
-            }
+            const { reply, recommendations } = res.data;
 
-            setMessages(prev => [...prev, { role: 'ai', text: aiResponseText, restaurants: recommendedRestaurants }]);
+            setMessages(prev => [
+                ...prev,
+                {
+                    role: 'ai',
+                    text: reply,
+                    restaurants: recommendations || [],
+                }
+            ]);
+        } catch (err) {
+            setMessages(prev => [
+                ...prev,
+                {
+                    role: 'ai',
+                    text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
+                    restaurants: [],
+                }
+            ]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     if (!isOpen) return null;
@@ -86,10 +102,10 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                             <div className="d-flex align-items-center mb-1 opacity-75 small">
                                 {msg.role === 'user' ? <><FaUser className="me-1" /> You</> : <><FaRobot className="me-1" /> AI</>}
                             </div>
-                            <p className="mb-0 lh-sm">{msg.text}</p>
+                            <p className="mb-0 lh-sm" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
                         </div>
 
-                        {/* Render Restaurant Card recommendations inside chat */}
+                        {/* Restaurant recommendation cards */}
                         {msg.restaurants && msg.restaurants.length > 0 && (
                             <div className="mt-2 w-100 ps-4">
                                 {msg.restaurants.map(r => (
@@ -97,9 +113,18 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                                         <Card.Body className="p-2">
                                             <div className="d-flex justify-content-between fw-bold">
                                                 <Link to={`/restaurant/${r.id}`} className="text-decoration-none">{r.name}</Link>
-                                                <Badge bg="danger"><FaStar /> {r.rating}</Badge>
+                                                <Badge bg="danger"><FaStar /> {r.avg_rating?.toFixed(1)}</Badge>
                                             </div>
-                                            <small className="text-muted d-block my-1">{r.price} • {r.desc}</small>
+                                            <small className="text-muted d-block my-1">
+                                                {r.price_range && `${r.price_range} • `}
+                                                {r.cuisine && `${r.cuisine} • `}
+                                                {r.city}
+                                            </small>
+                                            {r.description && (
+                                                <small className="text-muted d-block" style={{ fontSize: '0.75rem' }}>
+                                                    {r.description.length > 80 ? r.description.slice(0, 80) + '…' : r.description}
+                                                </small>
+                                            )}
                                         </Card.Body>
                                     </Card>
                                 ))}
@@ -119,7 +144,7 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                 <div ref={messagesEndRef} />
             </Card.Body>
 
-            {/* Input Form */}
+            {/* Input */}
             <div className="p-3 bg-white border-top">
                 <Form onSubmit={handleSend}>
                     <InputGroup>
@@ -128,15 +153,17 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             className="rounded-pill rounded-end border-end-0 bg-light"
+                            disabled={isTyping}
                         />
-                        <Button type="submit" variant="primary" className="rounded-pill rounded-start fw-bold px-3">
+                        <Button type="submit" variant="primary" className="rounded-pill rounded-start fw-bold px-3" disabled={isTyping}>
                             <FaPaperPlane />
                         </Button>
                     </InputGroup>
                 </Form>
                 <div className="d-flex flex-wrap gap-1 mt-2">
-                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Find dinner tonight')}>Find dinner tonight</Badge>
-                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Vegan options')}>Vegan options</Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Find me dinner tonight')}>Find dinner tonight</Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Vegan options near me')}>Vegan options</Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Best rated restaurants')}>Best rated</Badge>
                 </div>
             </div>
         </Card>
