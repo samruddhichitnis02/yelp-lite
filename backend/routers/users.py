@@ -45,41 +45,51 @@ def _save_upload_file(upload_file: UploadFile, dest_dir: Path) -> str:
 def update_profile(
     name: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    about: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    languages: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
     profile_pic: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Update current user's profile. Accepts multipart/form-data with optional
-    'name', 'location' fields and optional file 'profile_pic'.
-    """
-
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    # Update simple fields
     if name is not None:
         user.name = name.strip() or user.name
     if location is not None:
-        user.location = location.strip() or user.location
+        user.location = location.strip()
+    if phone is not None:
+        user.phone = phone.strip()
+    if about is not None:
+        user.about = about.strip()
+    if city is not None:
+        user.city = city.strip()
+    if state is not None:
+        user.state = state.strip()
+    if country is not None:
+        user.country = country.strip()
+    if languages is not None:
+        user.languages = languages.strip()
+    if gender is not None:
+        user.gender = gender.strip()
 
-    # Handle file upload (if provided)
     if profile_pic is not None:
-        # optional: validate content-type / file size here
-        # save file and set user.profile_pic to relative path
         try:
             rel_path = _save_upload_file(profile_pic, UPLOAD_DIR)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed saving file: {e}")
 
-        # Optionally remove previous file (best-effort)
         old = user.profile_pic
         user.profile_pic = rel_path
         if old:
             try:
                 old_path = Path(old)
-                # only delete files inside uploads directory to be safe
                 if old_path.exists() and "uploads" in str(old_path):
                     old_path.unlink(missing_ok=True)
             except Exception:

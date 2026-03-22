@@ -21,9 +21,16 @@ class UserPublic(BaseModel):
     email: EmailStr
     location: Optional[str] = None
     profile_pic: Optional[str] = None
+    phone: Optional[str] = None
+    about: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    languages: Optional[str] = None
+    gender: Optional[str] = None
 
     class Config:
-        from_attributes = True  # Pydantic v2 reads SQLAlchemy objects
+        from_attributes = True
 
 class TokenResponse(BaseModel):
     access_token: str

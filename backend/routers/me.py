@@ -26,6 +26,14 @@ def me_user(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
+        "profile_pic": current_user.profile_pic,
+        "phone": current_user.phone,
+        "about": current_user.about,
+        "city": current_user.city,
+        "state": current_user.state,
+        "country": current_user.country,
+        "languages": current_user.languages,
+        "gender": current_user.gender,
     }
 
 @router.get("/owner")
