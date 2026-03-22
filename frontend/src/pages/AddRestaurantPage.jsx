@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
-import { FaStore, FaImage, FaMapMarkerAlt, FaInfoCircle } from 'react-icons/fa';
+import { FaStore, FaMapMarkerAlt, FaInfoCircle, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
-  'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
-  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
-  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'
+    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+    'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+    'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+    'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+    'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'
+];
+
+const CUISINES = [
+    'American', 'Italian', 'Mexican', 'Japanese', 'Chinese',
+    'Indian', 'Thai', 'Korean', 'Mediterranean', 'French',
+    'Vietnamese', 'Brazilian', 'BBQ', 'Vegan', 'Seafood', 'Other'
 ];
 
 const AddRestaurantPage = () => {
     const navigate = useNavigate();
-    const role = localStorage.getItem('auth_role');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -33,6 +38,7 @@ const AddRestaurantPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -41,13 +47,10 @@ const AddRestaurantPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         setLoading(true);
         try {
-            const endpoint = role === 'owner'
-                ? '/restaurants/owner/create'
-                : '/restaurants/';
-
-            await api.post(endpoint, {
+            await api.post('/restaurants/', {
                 name: formData.name,
                 cuisine: formData.cuisine,
                 address: formData.address,
@@ -61,8 +64,8 @@ const AddRestaurantPage = () => {
                 amenities: formData.amenities,
                 price_range: formData.price_range,
             });
-
-            navigate(role === 'owner' ? '/owner/dashboard' : '/');
+            setSuccess('Restaurant listing created successfully!');
+            setTimeout(() => navigate('/'), 2000);
         } catch (err) {
             setError(err?.response?.data?.detail || 'Failed to create restaurant. Please try again.');
         } finally {
@@ -76,22 +79,21 @@ const AddRestaurantPage = () => {
                 <Col lg={8}>
                     <div className="mb-4">
                         <h2 className="fw-bold d-flex align-items-center">
-                            <FaStore className="me-2 text-primary" />
-                            {role === 'owner' ? 'Add Your Restaurant' : 'Add New Restaurant'}
+                            <FaStore className="me-2 text-primary" /> Add New Restaurant
                         </h2>
                         <p className="text-muted">
-                            {role === 'owner'
-                                ? 'Create your restaurant listing to start managing it from your dashboard.'
-                                : 'Create a new restaurant listing for others to discover.'}
+                            Know a great restaurant that's not listed? Add it here for others to discover.
                         </p>
                     </div>
 
                     {error && <Alert variant="danger">{error}</Alert>}
+                    {success && <Alert variant="success">{success}</Alert>}
 
                     <Card className="shadow-sm border-0">
                         <Card.Body className="p-4 p-md-5">
                             <Form onSubmit={handleSubmit}>
 
+                                {/* Basic Info */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2">
                                     <FaInfoCircle className="me-2 text-muted" /> Basic Information
                                 </h5>
@@ -99,7 +101,9 @@ const AddRestaurantPage = () => {
                                 <Row>
                                     <Col md={8}>
                                         <Form.Group className="mb-3">
-                                            <Form.Label className="fw-bold">Restaurant Name <span className="text-danger">*</span></Form.Label>
+                                            <Form.Label className="fw-bold">
+                                                Restaurant Name <span className="text-danger">*</span>
+                                            </Form.Label>
                                             <Form.Control
                                                 type="text"
                                                 name="name"
@@ -112,42 +116,38 @@ const AddRestaurantPage = () => {
                                     </Col>
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
-                                            <Form.Label className="fw-bold">Cuisine Type <span className="text-danger">*</span></Form.Label>
-                                            <Form.Select name="cuisine" value={formData.cuisine} onChange={handleChange}>
-                                                <option>American</option>
-                                                <option>Italian</option>
-                                                <option>Mexican</option>
-                                                <option>Japanese</option>
-                                                <option>Chinese</option>
-                                                <option>Indian</option>
-                                                <option>Thai</option>
-                                                <option>Korean</option>
-                                                <option>Mediterranean</option>
-                                                <option>French</option>
-                                                <option>Vietnamese</option>
-                                                <option>Brazilian</option>
-                                                <option>BBQ</option>
-                                                <option>Vegan</option>
-                                                <option>Seafood</option>
-                                                <option>Other</option>
+                                            <Form.Label className="fw-bold">
+                                                Cuisine Type <span className="text-danger">*</span>
+                                            </Form.Label>
+                                            <Form.Select
+                                                name="cuisine"
+                                                value={formData.cuisine}
+                                                onChange={handleChange}
+                                            >
+                                                {CUISINES.map(c => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
                                             </Form.Select>
                                         </Form.Group>
                                     </Col>
                                 </Row>
 
                                 <Form.Group className="mb-4">
-                                    <Form.Label className="fw-bold">Description <span className="text-danger">*</span></Form.Label>
+                                    <Form.Label className="fw-bold">
+                                        Description <span className="text-danger">*</span>
+                                    </Form.Label>
                                     <Form.Control
                                         as="textarea"
                                         rows={3}
                                         name="description"
                                         required
-                                        placeholder="Describe your restaurant's atmosphere and specialties..."
+                                        placeholder="Describe the restaurant's atmosphere and specialties..."
                                         value={formData.description}
                                         onChange={handleChange}
                                     />
                                 </Form.Group>
 
+                                {/* Location & Contact */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2 mt-5">
                                     <FaMapMarkerAlt className="me-2 text-muted" /> Location & Contact
                                 </h5>
@@ -155,7 +155,9 @@ const AddRestaurantPage = () => {
                                 <Row>
                                     <Col md={8}>
                                         <Form.Group className="mb-3">
-                                            <Form.Label className="fw-bold">Street Address <span className="text-danger">*</span></Form.Label>
+                                            <Form.Label className="fw-bold">
+                                                Street Address <span className="text-danger">*</span>
+                                            </Form.Label>
                                             <Form.Control
                                                 type="text"
                                                 name="address"
@@ -168,7 +170,9 @@ const AddRestaurantPage = () => {
                                     </Col>
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
-                                            <Form.Label className="fw-bold">City <span className="text-danger">*</span></Form.Label>
+                                            <Form.Label className="fw-bold">
+                                                City <span className="text-danger">*</span>
+                                            </Form.Label>
                                             <Form.Control
                                                 type="text"
                                                 name="city"
@@ -182,7 +186,11 @@ const AddRestaurantPage = () => {
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">State</Form.Label>
-                                            <Form.Select name="state" value={formData.state} onChange={handleChange}>
+                                            <Form.Select
+                                                name="state"
+                                                value={formData.state}
+                                                onChange={handleChange}
+                                            >
                                                 <option value="">Select state...</option>
                                                 {US_STATES.map(s => (
                                                     <option key={s} value={s}>{s}</option>
@@ -240,15 +248,20 @@ const AddRestaurantPage = () => {
                                     </Col>
                                 </Row>
 
+                                {/* Details */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2 mt-5">
-                                    <FaImage className="me-2 text-muted" /> Details
+                                    <FaImage className="me-2 text-muted" /> Additional Details
                                 </h5>
 
-                                <Row className="mb-4">
+                                <Row>
                                     <Col md={6}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Pricing Tier</Form.Label>
-                                            <Form.Select name="price_range" value={formData.price_range} onChange={handleChange}>
+                                            <Form.Select
+                                                name="price_range"
+                                                value={formData.price_range}
+                                                onChange={handleChange}
+                                            >
                                                 <option value="$">$ (Inexpensive)</option>
                                                 <option value="$$">$$ (Moderate)</option>
                                                 <option value="$$$">$$$ (Expensive)</option>
@@ -266,15 +279,27 @@ const AddRestaurantPage = () => {
                                                 value={formData.amenities}
                                                 onChange={handleChange}
                                             />
+                                            <Form.Text className="text-muted">
+                                                Separate with commas
+                                            </Form.Text>
                                         </Form.Group>
                                     </Col>
                                 </Row>
 
                                 <div className="d-flex justify-content-end mt-4 gap-3">
-                                    <Button variant="outline-secondary" type="button" onClick={() => navigate(-1)}>
+                                    <Button
+                                        variant="outline-secondary"
+                                        type="button"
+                                        onClick={() => navigate(-1)}
+                                    >
                                         Cancel
                                     </Button>
-                                    <Button variant="primary" type="submit" className="px-5 fw-bold" disabled={loading}>
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        className="px-5 fw-bold"
+                                        disabled={loading}
+                                    >
                                         {loading
                                             ? <><Spinner size="sm" animation="border" className="me-2" />Creating...</>
                                             : 'Create Listing'
