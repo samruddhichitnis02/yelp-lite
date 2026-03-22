@@ -21,7 +21,6 @@ const AuthPage = () => {
     name: '',
     email: '',
     password: '',
-    location: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +32,6 @@ const AuthPage = () => {
       name: '',
       email: '',
       password: '',
-      location: '',
     });
     setError('');
   };
@@ -77,7 +75,6 @@ const AuthPage = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        location: formData.location,
       });
 
       saveAuthData(data);
