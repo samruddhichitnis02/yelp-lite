@@ -15,7 +15,6 @@ export const signupUser = async ({ name, email, password, location }) => {
     name: name.trim(),
     email: email.trim(),
     password,
-    location: location.trim(),
   });
 
   return response.data;

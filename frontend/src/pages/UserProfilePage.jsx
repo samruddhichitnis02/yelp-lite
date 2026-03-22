@@ -1,19 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState,  } from 'react';
 import { Container, Row, Col, Card, Form, Button, Badge } from 'react-bootstrap';
 import { FaUserEdit, FaCamera, FaRobot } from 'react-icons/fa';
+import api from '../services/api';
+import { getStoredUser } from '../services/auth';
 
 const UserProfilePage = () => {
     // Mock User State
+    const storedUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+
+    useEffect(() => {
+    const fetchUser = async () => {
+        try {
+        const res = await api.get('/me/user');
+        const user = res.data;
+
+        setUserDetails((prev) => ({
+            ...prev,
+            name: user.name || '',
+            email: user.email || '',
+        }));
+        } catch (err) {
+        console.error('Failed to fetch user:', err);
+        }
+    };
+
+    fetchUser();
+    }, []);
+
     const [userDetails, setUserDetails] = useState({
-        name: 'Sarah Miller',
-        email: 'sarah.miller@example.com',
-        phone: '(555) 987-6543',
-        about: 'Food enthusiast, always looking for the best spicy noodles in town.',
-        city: 'San Francisco',
-        state: 'CA',
-        country: 'USA',
-        language: 'English',
-        gender: 'Female'
+        name: storedUser.name || '',
+        email: storedUser.email || '',
+        phone: '',
+        about: '',
+        city: '',
+        state: '',
+        country: '',
+        language: '',
+        gender: ''
     });
 
     // Mock Preferences State for AI Assistant
