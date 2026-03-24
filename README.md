@@ -1,6 +1,6 @@
 # Yelp Prototype - Restaurant Discovery Platform
 
-A full-stack Yelp-style restaurant discovery and review platform built with React.js, Python FastAPI, and MySQL. Supports two user personas — **Regular Users** and **Restaurant Owners** — with an integrated AI Assistant chatbot for personalized restaurant recommendations.
+A full-stack Yelp-style restaurant discovery and review platform built with React.js, Python FastAPI, and MySQL. Supports two user personas : **Regular Users** and **Restaurant Owners** ; with an integrated AI Assistant chatbot for personalized restaurant recommendations.
 
 ---
 
@@ -178,7 +178,7 @@ Frontend will be running at: `http://localhost:5173`
 ### User (Reviewer) Features
 - Signup / Login / Logout with JWT authentication
 - Profile management — name, email, phone, city, state, country, gender, languages, about me, profile picture
-- AI Preferences — cuisine preferences, price range, dietary restrictions, ambiance, sort preference
+- AI Preferences :  cuisine preferences, price range, dietary restrictions, ambiance, sort preference
 - Restaurant search by name, cuisine, keyword (wifi, outdoor seating etc.), city/zip
 - Restaurant details view — name, cuisine, address, description, hours, contact, reviews
 - Write, edit, and delete own reviews with 1-5 star rating
@@ -189,7 +189,7 @@ Frontend will be running at: `http://localhost:5173`
 
 ### Restaurant Owner Features
 - Signup / Login / Logout
-- Owner dashboard with analytics — total restaurants, favourites count, avg rating, total reviews, recent reviews
+- Owner dashboard with analytics :  total restaurants, favourites count, avg rating, total reviews, recent reviews
 - Add new restaurant listing (directly linked to owner account)
 - Claim existing unclaimed restaurants
 - View and update restaurant profile — name, cuisine, description, location, contact info, hours, amenities, pricing, photo
@@ -246,7 +246,3 @@ Full API documentation is available via:
 - JWT tokens expire after 24 hours (1440 minutes)
 
 ---
-
-## Author
-
-Built as part of DS 236 - Distributed Systems Lab 1, SJSU Spring 2026
