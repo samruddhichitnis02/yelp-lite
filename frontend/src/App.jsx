@@ -16,11 +16,30 @@ import AddRestaurantPage from './pages/AddRestaurantPage';
 import OwnerDashboard from './pages/OwnerDashboard';
 import { Button } from 'react-bootstrap';
 import { FaRobot } from 'react-icons/fa';
+import { getAuthRole } from './services/auth';
 
 const NotFound = () => <div className="container mt-5 text-center"><h2>404 - Page Not Found</h2></div>;
 
 function App() {
   const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const [role, setRole] = React.useState(() => getAuthRole());
+  const isOwner = role === 'owner';
+
+  // Keep role in sync whenever localStorage changes (login / logout in same or other tab)
+  React.useEffect(() => {
+    const syncRole = () => setRole(getAuthRole());
+
+    // Listen for storage events fired from other tabs
+    window.addEventListener('storage', syncRole);
+
+    // Poll for same-tab changes (login/logout without page reload)
+    const interval = setInterval(syncRole, 500);
+
+    return () => {
+      window.removeEventListener('storage', syncRole);
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <Router>
@@ -47,16 +66,20 @@ function App() {
           </Routes>
         </main>
 
-        {/* Global AI Assistant Floating Toggle */}
-        <Button
-          variant="primary"
-          className="position-fixed shadow-lg rounded-circle d-flex align-items-center justify-content-center"
-          style={{ bottom: '30px', right: '30px', width: '60px', height: '60px', zIndex: 1040 }}
-          onClick={() => setIsChatOpen(!isChatOpen)}
-        >
-          <FaRobot size={28} />
-        </Button>
-        <AIAssistantChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+        {/* AI Assistant — only visible for regular users, hidden for owners */}
+        {!isOwner && (
+          <>
+            <Button
+              variant="primary"
+              className="position-fixed shadow-lg rounded-circle d-flex align-items-center justify-content-center"
+              style={{ bottom: '30px', right: '30px', width: '60px', height: '60px', zIndex: 1040 }}
+              onClick={() => setIsChatOpen(!isChatOpen)}
+            >
+              <FaRobot size={28} />
+            </Button>
+            <AIAssistantChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          </>
+        )}
 
         <footer className="bg-light text-center text-muted py-3 mt-auto">
           <div className="container">

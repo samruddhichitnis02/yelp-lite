@@ -242,54 +242,105 @@ const RestaurantDetailsPage = () => {
                             {restaurant.reviews && restaurant.reviews.length > 0 ? (
                                 restaurant.reviews.map(review => {
                                     const isOwnReview = currentUser?.id === review.user_id;
+                                    const displayName = isOwnReview ? 'You' : `User #${review.user_id}`;
+                                    const avatarLetter = displayName.charAt(0).toUpperCase();
+                                    const ratingColors = ['', '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#27ae60'];
+                                    const starColor = ratingColors[review.rating] || '#e74c3c';
                                     return (
-                                        <Card key={review.id} className="mb-3 border-0 border-bottom rounded-0 pb-3">
-                                            <div className="d-flex justify-content-between mb-2">
-                                                <div>
-                                                    <h6 className="fw-bold mb-0">
-                                                        {isOwnReview ? 'You' : `User #${review.user_id}`}
-                                                    </h6>
-                                                    <small className="text-muted">
-                                                        {new Date(review.created_at).toLocaleDateString()}
-                                                    </small>
+                                        <Card key={review.id} className="mb-3 border-0 shadow-sm rounded-3 p-1">
+                                            <Card.Body>
+                                                {/* Top row: avatar + name/date + stars */}
+                                                <div className="d-flex align-items-start justify-content-between mb-3">
+                                                    <div className="d-flex align-items-center gap-3">
+                                                        {/* Avatar circle */}
+                                                        <div
+                                                            className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                                            style={{
+                                                                width: 44, height: 44, fontSize: 18,
+                                                                background: isOwnReview
+                                                                    ? 'linear-gradient(135deg, #667eea, #764ba2)'
+                                                                    : 'linear-gradient(135deg, #f093fb, #f5576c)'
+                                                            }}
+                                                        >
+                                                            {avatarLetter}
+                                                        </div>
+                                                        <div>
+                                                            <div className="fw-bold text-dark" style={{ fontSize: '0.95rem' }}>
+                                                                {displayName}
+                                                            </div>
+                                                            <small className="text-muted">
+                                                                {new Date(review.created_at).toLocaleDateString('en-US', {
+                                                                    year: 'numeric', month: 'long', day: 'numeric'
+                                                                })}
+                                                            </small>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Star rating display */}
+                                                    <div className="d-flex flex-column align-items-end gap-1">
+                                                        <div className="d-flex gap-1">
+                                                            {[1,2,3,4,5].map(star => (
+                                                                <FaStar
+                                                                    key={star}
+                                                                    style={{
+                                                                        color: star <= review.rating ? starColor : '#ddd',
+                                                                        fontSize: '1rem'
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                                            {review.rating}/5
+                                                        </small>
+                                                    </div>
                                                 </div>
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <Badge bg="danger" className="d-flex align-items-center">
-                                                        <FaStar className="me-1" /> {review.rating}
-                                                    </Badge>
-                                                    {isOwnReview && (
+
+                                                {/* Review comment */}
+                                                <p className="mb-2 text-dark" style={{
+                                                    fontSize: '0.92rem',
+                                                    lineHeight: '1.6',
+                                                    borderLeft: `3px solid ${starColor}`,
+                                                    paddingLeft: '12px',
+                                                    fontStyle: 'italic'
+                                                }}>
+                                                    "{review.comment}"
+                                                </p>
+
+                                                {/* Review Photos */}
+                                                {reviewPhotos[review.id] && reviewPhotos[review.id].length > 0 && (
+                                                    <div className="d-flex flex-wrap gap-2 mt-3">
+                                                        {reviewPhotos[review.id].map(photo => (
+                                                            <img
+                                                                key={photo.id}
+                                                                src={`http://localhost:8000/${photo.photo_path}`}
+                                                                alt="Review"
+                                                                className="rounded-2"
+                                                                style={{ height: '80px', width: '80px', objectFit: 'cover', cursor: 'pointer' }}
+                                                                onClick={() => window.open(`http://localhost:8000/${photo.photo_path}`, '_blank')}
+                                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Edit/Delete for own review */}
+                                                {isOwnReview && (
+                                                    <div className="mt-3 pt-2 border-top">
                                                         <ReviewActions
                                                             review={review}
                                                             restaurantId={restaurant.id}
                                                             onDone={handleReviewSubmitted}
                                                         />
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <Card.Text>{review.comment}</Card.Text>
-
-                                            {/* Review Photos */}
-                                            {reviewPhotos[review.id] && reviewPhotos[review.id].length > 0 && (
-                                                <div className="d-flex flex-wrap gap-2 mt-2">
-                                                    {reviewPhotos[review.id].map(photo => (
-                                                        <img
-                                                            key={photo.id}
-                                                            src={`http://localhost:8000/${photo.photo_path}`}
-                                                            alt="Review"
-                                                            className="rounded"
-                                                            style={{ height: '80px', width: '80px', objectFit: 'cover', cursor: 'pointer' }}
-                                                            onClick={() => window.open(`http://localhost:8000/${photo.photo_path}`, '_blank')}
-                                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    </div>
+                                                )}
+                                            </Card.Body>
                                         </Card>
                                     );
                                 })
                             ) : (
-                                <div className="text-center py-4 text-muted">
-                                    <p>No reviews yet. Be the first to review!</p>
+                                <div className="text-center py-5 text-muted">
+                                    <FaStar size={32} className="mb-3 opacity-25" />
+                                    <p className="mb-0">No reviews yet. Be the first to review!</p>
                                 </div>
                             )}
                         </div>

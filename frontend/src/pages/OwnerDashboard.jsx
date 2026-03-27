@@ -128,7 +128,7 @@ const OwnerDashboard = () => {
                                                         {r.avg_rating > 0 ? r.avg_rating.toFixed(1) : 'New'}
                                                     </Badge>
                                                 </td>
-                                                <td>{dashboardData.review_count}</td>
+                                                <td>{r.review_count ?? 0}</td>
                                                 <td><Badge bg="success">Active</Badge></td>
                                                 <td className="text-end px-4">
                                                     <Button

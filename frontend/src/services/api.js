@@ -21,9 +21,12 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response && error.response.status === 401) {
-            // Handle unauthorized access globally
-            localStorage.removeItem('auth_token');
-            window.location.href = '/auth';
+            // Don't redirect on 401 for the AI assistant — it's accessible without login
+            const url = error.config?.url || '';
+            if (!url.includes('/ai-assistant/')) {
+                localStorage.removeItem('auth_token');
+                window.location.href = '/auth';
+            }
         }
         return Promise.reject(error);
     }
