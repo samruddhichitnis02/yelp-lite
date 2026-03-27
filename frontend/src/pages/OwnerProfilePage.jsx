@@ -80,17 +80,47 @@ const OwnerProfilePage = () => {
   const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Validate it's an image before doing anything
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
+
+    // Show a local preview immediately so the UI feels responsive
     setPhotoPreview(URL.createObjectURL(file));
+    setError('');
+    setSuccess('');
+
+    // We need restaurant.id to know which restaurant to update.
+    // restaurant.id is populated after the initial fetch, so it should
+    // always be available here. If it's somehow missing, show a clear error.
+    const targetId = restaurant.id || restaurantId;
+    if (!targetId) {
+      setError('Cannot upload photo: restaurant not loaded yet. Please refresh and try again.');
+      setPhotoPreview(null);
+      return;
+    }
+
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post(`/restaurants/owner/profile/photo${restaurantId ? `?restaurant_id=${restaurantId}` : ''}`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Always pass restaurant_id so the backend can find the exact record
+      const res = await api.post(
+        `/restaurants/owner/profile/photo?restaurant_id=${targetId}`,
+        fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
       setRestaurant(res.data);
       setSuccess('Cover photo updated successfully!');
     } catch (err) {
-      setError('Failed to upload photo.');
+      // Clear the optimistic preview so the old image shows again
+      setPhotoPreview(null);
+      const detail = err?.response?.data?.detail;
+      setError(detail || 'Failed to upload photo. Please try again.');
+    } finally {
+      // Reset the file input so the same file can be re-selected if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -129,7 +159,10 @@ const OwnerProfilePage = () => {
     setError('');
     setSuccess('');
     try {
-      const res = await api.put('/restaurants/owner/profile', {
+      const targetId = restaurant.id || restaurantId;
+      const res = await api.put(
+        `/restaurants/owner/profile${targetId ? `?restaurant_id=${targetId}` : ''}`,
+        {
         name: restaurant.name,
         cuisine: restaurant.cuisine,
         description: restaurant.description,
@@ -146,11 +179,14 @@ const OwnerProfilePage = () => {
       setRestaurant(res.data);
 
       if (photoFile) {
+        const targetId = restaurant.id || restaurantId;
         const fd = new FormData();
         fd.append('file', photoFile);
-        const photoRes = await api.post('/restaurants/owner/profile/photo', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const photoRes = await api.post(
+          `/restaurants/owner/profile/photo${targetId ? `?restaurant_id=${targetId}` : ''}`,
+          fd,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
         setRestaurant(photoRes.data);
         setPhotoFile(null);
         setPhotoPreview(null);
@@ -192,10 +228,23 @@ const OwnerProfilePage = () => {
       <Container className="py-5 text-center">
         <FaStore size={60} className="text-muted mb-4" />
         <h3>No Restaurant Profile Found</h3>
-        <p className="text-muted">You haven't claimed or been linked to a restaurant yet.</p>
-        <Button variant="primary" onClick={() => navigate('/owner/dashboard')}>
-          Back to Dashboard
-        </Button>
+        <p className="text-muted mb-4">
+          {restaurantId
+            ? `Restaurant #${restaurantId} is not linked to your account. You may need to claim it first.`
+            : "You haven't claimed or created a restaurant yet. Get started below."}
+        </p>
+        <div className="d-flex justify-content-center gap-3 flex-wrap">
+          <Button variant="primary" onClick={() => navigate('/claim-restaurant')}>
+            <FaStore className="me-2" />
+            Claim an Existing Restaurant
+          </Button>
+          <Button variant="outline-primary" onClick={() => navigate('/add-restaurant')}>
+            Add a New Restaurant
+          </Button>
+          <Button variant="outline-secondary" onClick={() => navigate('/owner/dashboard')}>
+            Back to Dashboard
+          </Button>
+        </div>
       </Container>
     );
   }

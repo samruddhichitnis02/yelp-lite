@@ -189,13 +189,23 @@ def upload_owner_restaurant_photo(
     db: Session = Depends(get_db),
     current_owner: Owner = Depends(get_current_owner),
 ):
+    # Build query: must be owned by this owner
     query = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id)
     if restaurant_id:
         query = query.filter(Restaurant.id == restaurant_id)
     restaurant = query.first()
 
     if not restaurant:
-        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+        # Give a clear error so the frontend can surface it
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Restaurant {restaurant_id} not found or not owned by you. "
+                "Make sure you have claimed or created this restaurant first."
+            )
+            if restaurant_id
+            else "No restaurant profile found for this owner. Please claim or create a restaurant first.",
+        )
 
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
@@ -248,6 +258,7 @@ def get_owner_dashboard(
     total_review_count = 0
     total_favourites_count = 0
     all_recent_reviews = []
+    restaurant_list = []
 
     for restaurant in restaurants:
         review_count = db.query(Review).filter(Review.restaurant_id == restaurant.id).count()
@@ -263,10 +274,32 @@ def get_owner_dashboard(
         total_favourites_count += favourites_count
         all_recent_reviews.extend(recent_reviews)
 
+        restaurant_list.append({
+            "id": restaurant.id,
+            "owner_id": restaurant.owner_id,
+            "created_by_user_id": restaurant.created_by_user_id,
+            "name": restaurant.name,
+            "address": restaurant.address,
+            "city": restaurant.city,
+            "state": restaurant.state,
+            "zip_code": restaurant.zip_code,
+            "cuisine": restaurant.cuisine,
+            "price_range": restaurant.price_range,
+            "phone": restaurant.phone,
+            "website": restaurant.website,
+            "hours_of_operation": restaurant.hours_of_operation,
+            "amenities": restaurant.amenities,
+            "description": restaurant.description,
+            "image": restaurant.image,
+            "avg_rating": restaurant.avg_rating,
+            "review_count": review_count,
+            "favourites_count": favourites_count,
+        })
+
     avg_rating = sum(r.avg_rating for r in restaurants) / len(restaurants)
 
     return {
-        "restaurants": restaurants,
+        "restaurants": restaurant_list,
         "review_count": total_review_count,
         "favourites_count": total_favourites_count,
         "avg_rating": round(avg_rating, 1),
