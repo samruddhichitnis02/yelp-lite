@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from database import get_db
 from models.users import User
@@ -9,10 +10,19 @@ from fastapi.security import OAuth2PasswordRequestForm
 from schemas.users import UserSignupRequest, UserLoginRequest
 from schemas.owner import OwnerSignupRequest, OwnerLoginRequest
 
-
-from services.auth_service import hash_password, verify_password, create_access_token
+from services.auth_service import hash_password, verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# ── Shared request schemas for forgot/reset ──────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 @router.post("/user/signup")
@@ -112,3 +122,82 @@ def owner_login(payload: OwnerLoginRequest, db: Session = Depends(get_db)):
             "email": owner.email,
         },
     }
+
+# ── Forgot Password (generates a short-lived reset token) ────────────────────
+
+@router.post("/user/forgot-password")
+def user_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        return {"message": "If that email is registered, a reset token has been generated.", "reset_token": None}
+
+    reset_token = create_access_token(
+        {"sub": str(user.id), "role": "user", "purpose": "reset"},
+        expires_minutes=15,
+    )
+    return {
+        "message": "Reset token generated. Use it at /auth/user/reset-password within 15 minutes.",
+        "reset_token": reset_token,
+    }
+
+
+@router.post("/user/reset-password")
+def user_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        data = decode_access_token(payload.token)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+
+    if data.get("purpose") != "reset" or data.get("role") != "user":
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    user = db.query(User).filter(User.id == int(data["sub"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password reset successfully. You can now log in."}
+
+
+# ── Forgot Password — Owner ──────────────────────────────────────────────────
+
+@router.post("/owner/forgot-password")
+def owner_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    owner = db.query(Owner).filter(Owner.email == payload.email).first()
+    if not owner:
+        return {"message": "If that email is registered, a reset token has been generated.", "reset_token": None}
+
+    reset_token = create_access_token(
+        {"sub": str(owner.id), "role": "owner", "purpose": "reset"},
+        expires_minutes=15,
+    )
+    return {
+        "message": "Reset token generated. Use it at /auth/owner/reset-password within 15 minutes.",
+        "reset_token": reset_token,
+    }
+
+
+@router.post("/owner/reset-password")
+def owner_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        data = decode_access_token(payload.token)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+
+    if data.get("purpose") != "reset" or data.get("role") != "owner":
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    owner = db.query(Owner).filter(Owner.id == int(data["sub"])).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found.")
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    owner.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password reset successfully. You can now log in."}
