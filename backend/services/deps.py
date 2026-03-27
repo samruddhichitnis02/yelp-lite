@@ -1,4 +1,5 @@
-from fastapi import Depends, HTTPException, status
+from typing import Optional
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -38,3 +39,25 @@ def get_current_owner(db: Session = Depends(get_db), token: str = Depends(oauth2
     if not owner:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Owner not found")
     return owner
+
+# Optional variant — returns None instead of raising 401 when no/invalid token
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/user/login", auto_error=False)
+
+def get_optional_user(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+) -> Optional[User]:
+    """Like get_current_user but returns None for unauthenticated requests."""
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+    except ValueError:
+        return None
+
+    if payload.get("role") != "user":
+        return None
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    return user
