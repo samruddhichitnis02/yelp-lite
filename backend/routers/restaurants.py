@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from models.review import Review
 from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic, RestaurantUpdateRequest
 from sqlalchemy.orm import Session
 
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy import or_
 
 from database import get_db
@@ -84,7 +84,7 @@ def owner_create_restaurant(
 @router.get("/search", response_model=list[RestaurantPublic])
 def search_restaurants(
     name: Optional[str] = None,
-    cuisine: Optional[str] = None,
+    cuisine: Optional[List[str]] = Query(default=None),
     keyword: Optional[str] = None,
     location: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -95,7 +95,10 @@ def search_restaurants(
         query = query.filter(Restaurant.name.ilike(f"%{name}%"))
 
     if cuisine:
-        query = query.filter(Restaurant.cuisine.ilike(f"%{cuisine}%"))
+        # OR across all selected cuisines
+        query = query.filter(
+            or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in cuisine])
+        )
 
     if keyword:
         query = query.filter(
