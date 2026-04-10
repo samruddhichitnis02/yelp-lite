@@ -4,6 +4,95 @@ import { FaRobot, FaPaperPlane, FaTimes, FaUser, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 
+// Lightweight markdown renderer — handles bold, numbered lists, bullet lists
+const renderMarkdown = (text) => {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+    const elements = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Skip empty lines
+        if (line.trim() === '') {
+            i++;
+            continue;
+        }
+
+        // Numbered list: lines starting with "1.", "2.", etc.
+        if (/^\d+\.\s/.test(line.trim())) {
+            const listItems = [];
+            while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+                listItems.push(lines[i].replace(/^\d+\.\s/, '').trim());
+                i++;
+            }
+            elements.push(
+                <ol key={i} style={{ paddingLeft: '1.2rem', marginBottom: '0.5rem' }}>
+                    {listItems.map((item, j) => (
+                        <li key={j} style={{ marginBottom: '4px' }}>{inlineFormat(item)}</li>
+                    ))}
+                </ol>
+            );
+            continue;
+        }
+
+        // Bullet list: lines starting with "- " or "* "
+        if (/^[-*]\s/.test(line.trim())) {
+            const listItems = [];
+            while (i < lines.length && /^[-*]\s/.test(lines[i].trim())) {
+                listItems.push(lines[i].replace(/^[-*]\s/, '').trim());
+                i++;
+            }
+            elements.push(
+                <ul key={i} style={{ paddingLeft: '1.2rem', marginBottom: '0.5rem' }}>
+                    {listItems.map((item, j) => (
+                        <li key={j} style={{ marginBottom: '4px' }}>{inlineFormat(item)}</li>
+                    ))}
+                </ul>
+            );
+            continue;
+        }
+
+        // Normal paragraph
+        elements.push(
+            <p key={i} style={{ marginBottom: '0.4rem' }}>{inlineFormat(line)}</p>
+        );
+        i++;
+    }
+
+    return elements;
+};
+
+// Handle inline **bold** and *italic* formatting
+const inlineFormat = (text) => {
+    const parts = [];
+    // Split on **bold** and *italic*
+    const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    let last = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > last) {
+            parts.push(text.slice(last, match.index));
+        }
+        const raw = match[0];
+        if (raw.startsWith('**')) {
+            parts.push(<strong key={match.index}>{raw.slice(2, -2)}</strong>);
+        } else {
+            parts.push(<em key={match.index}>{raw.slice(1, -1)}</em>);
+        }
+        last = match.index + raw.length;
+    }
+
+    if (last < text.length) {
+        parts.push(text.slice(last));
+    }
+
+    return parts.length > 0 ? parts : text;
+};
+
 const AIAssistantChat = ({ isOpen, onClose }) => {
     const [messages, setMessages] = useState([
         {
@@ -24,7 +113,7 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         scrollToBottom();
     }, [messages, isTyping]);
 
-        useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
             setMessages([
                 {
@@ -36,7 +125,6 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         }
     }, [isOpen]);
 
-    // Build conversation history for the backend (only user/ai turns, no restaurants)
     const buildHistory = (msgs) => {
         return msgs
             .filter(m => m.role === 'user' || m.role === 'ai')
@@ -59,7 +147,7 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         setIsTyping(true);
 
         try {
-            const history = buildHistory(messages); // history before this new message
+            const history = buildHistory(messages);
             const res = await api.post('/ai-assistant/chat', {
                 message: userText,
                 conversation_history: history,
@@ -92,7 +180,7 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <Card className="position-fixed shadow-lg border-0" style={{ bottom: '20px', right: '20px', width: '380px', height: '550px', zIndex: 1050, display: 'flex', flexDirection: 'column', borderRadius: '15px', overflow: 'hidden' }}>
+        <Card className="position-fixed shadow-lg border-0" style={{ bottom: '20px', right: '20px', width: '400px', height: '580px', zIndex: 1050, display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
 
             {/* Header */}
             <div className="bg-primary text-white p-3 d-flex justify-content-between align-items-center">
@@ -108,33 +196,47 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`d-flex flex-column mb-3 ${msg.role === 'user' ? 'align-items-end' : 'align-items-start'}`}>
                         <div
-                            className={`p-3 rounded shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                            style={{ maxWidth: '85%', borderBottomRightRadius: msg.role === 'user' ? 0 : '', borderBottomLeftRadius: msg.role === 'ai' ? 0 : '' }}
+                            className={`p-3 rounded-3 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-dark'}`}
+                            style={{
+                                maxWidth: '88%',
+                                borderBottomRightRadius: msg.role === 'user' ? '4px' : '',
+                                borderBottomLeftRadius: msg.role === 'ai' ? '4px' : '',
+                                fontSize: '0.9rem',
+                                lineHeight: '1.5',
+                            }}
                         >
-                            <div className="d-flex align-items-center mb-1 opacity-75 small">
-                                {msg.role === 'user' ? <><FaUser className="me-1" /> You</> : <><FaRobot className="me-1" /> AI</>}
+                            <div className="d-flex align-items-center mb-2 opacity-75" style={{ fontSize: '0.75rem' }}>
+                                {msg.role === 'user'
+                                    ? <><FaUser className="me-1" /> You</>
+                                    : <><FaRobot className="me-1" /> AI Assistant</>
+                                }
                             </div>
-                            <p className="mb-0 lh-sm" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
+
+                            {/* Render plain text for user, markdown for AI */}
+                            {msg.role === 'user'
+                                ? <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
+                                : <div style={{ marginBottom: 0 }}>{renderMarkdown(msg.text)}</div>
+                            }
                         </div>
 
                         {/* Restaurant recommendation cards */}
                         {msg.restaurants && msg.restaurants.length > 0 && (
-                            <div className="mt-2 w-100 ps-4">
+                            <div className="mt-2 w-100" style={{ paddingLeft: '8px' }}>
                                 {msg.restaurants.map(r => (
-                                    <Card key={r.id} className="mb-2 shadow-sm border-0 border-start border-4 border-primary">
-                                        <Card.Body className="p-2">
-                                            <div className="d-flex justify-content-between fw-bold">
-                                                <Link to={`/restaurant/${r.id}`} className="text-decoration-none">{r.name}</Link>
-                                                <Badge bg="danger"><FaStar /> {r.avg_rating?.toFixed(1)}</Badge>
+                                    <Card key={r.id} className="mb-2 shadow-sm border-0" style={{ borderLeft: '3px solid #0d6efd', borderRadius: '10px' }}>
+                                        <Card.Body className="p-2 px-3">
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <Link to={`/restaurant/${r.id}`} className="text-decoration-none fw-bold" style={{ fontSize: '0.88rem' }}>{r.name}</Link>
+                                                <Badge bg="danger" style={{ fontSize: '0.72rem' }}>
+                                                    <FaStar className="me-1" />{r.avg_rating?.toFixed(1)}
+                                                </Badge>
                                             </div>
-                                            <small className="text-muted d-block my-1">
-                                                {r.price_range && `${r.price_range} • `}
-                                                {r.cuisine && `${r.cuisine} • `}
-                                                {r.city}
+                                            <small className="text-muted d-block my-1" style={{ fontSize: '0.75rem' }}>
+                                                {[r.price_range, r.cuisine, r.city].filter(Boolean).join(' • ')}
                                             </small>
                                             {r.description && (
-                                                <small className="text-muted d-block" style={{ fontSize: '0.75rem' }}>
-                                                    {r.description.length > 80 ? r.description.slice(0, 80) + '…' : r.description}
+                                                <small className="text-muted d-block" style={{ fontSize: '0.73rem', lineHeight: '1.3' }}>
+                                                    {r.description.length > 90 ? r.description.slice(0, 90) + '…' : r.description}
                                                 </small>
                                             )}
                                         </Card.Body>
@@ -144,9 +246,10 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                         )}
                     </div>
                 ))}
+
                 {isTyping && (
                     <div className="d-flex align-items-start mb-3">
-                        <div className="bg-white p-3 rounded shadow-sm text-muted d-flex align-items-center gap-2" style={{ borderBottomLeftRadius: 0 }}>
+                        <div className="bg-white p-3 rounded-3 shadow-sm text-muted d-flex align-items-center gap-2" style={{ borderBottomLeftRadius: '4px' }}>
                             <Spinner animation="grow" size="sm" variant="primary" />
                             <Spinner animation="grow" size="sm" variant="primary" style={{ animationDelay: '0.2s' }} />
                             <Spinner animation="grow" size="sm" variant="primary" style={{ animationDelay: '0.4s' }} />

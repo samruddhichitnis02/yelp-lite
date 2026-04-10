@@ -141,16 +141,29 @@ def search_restaurant_candidates(db, preferences: Dict[str, Any], user_message: 
     return db.query(Restaurant).order_by(Restaurant.avg_rating.desc()).limit(10).all()
 
 
+def is_location_in_database(db, user_message: str) -> bool:
+    """Check if the user's message mentions a location that exists in our database."""
+    lower_message = user_message.lower()
+    all_cities = db.query(Restaurant.city).filter(Restaurant.city.isnot(None)).distinct().all()
+    for row in all_cities:
+        city = row[0]
+        if city and city.lower() in lower_message:
+            return True
+    return False
+
+
 def maybe_get_tavily_context(user_message: str) -> str:
     client = get_tavily_client()
     if not client:
         return ""
 
     try:
+        # Make the query more restaurant-specific so Tavily returns useful results
+        search_query = f"best restaurants {user_message}"
         result = client.search(
-            query=user_message,
+            query=search_query,
             search_depth="basic",
-            max_results=3,
+            max_results=5,
         )
         results = result.get("results", [])
         if not results:
@@ -160,7 +173,8 @@ def maybe_get_tavily_context(user_message: str) -> str:
         for item in results:
             title = item.get("title", "")
             content = item.get("content", "")
-            formatted.append(f"Title: {title}\nContent: {content}")
+            url = item.get("url", "")
+            formatted.append(f"Source: {url}\nTitle: {title}\nContent: {content}")
 
         return "\n\n".join(formatted)
     except Exception:
@@ -176,25 +190,29 @@ def build_messages(
 ):
     system_prompt = (
         "You are a friendly, conversational AI restaurant assistant for a Yelp-like application.\n\n"
+        "You have access to TWO sources of restaurant information:\n"
+        "1. DATABASE RESTAURANTS — restaurants listed in our app (provided below as 'Restaurant candidates')\n"
+        "2. EXTERNAL WEB RESULTS — real-world restaurant info fetched from the web via Tavily (provided below as 'External context')\n\n"
         "Your behaviour rules:\n"
         "- ALWAYS read and directly respond to what the user actually said first.\n"
         "- If the user is greeting you, making small talk, or asking a general question — respond naturally and conversationally. Do NOT jump straight into restaurant recommendations.\n"
         "- Only recommend restaurants when the user is clearly looking for one (e.g. asking for food, a place to eat, suggestions, etc.)\n"
-        "- When you do recommend, ONLY use restaurants from the provided restaurant candidates. Never invent or mention any restaurant not in that list.\n"
-        "- If there are no good matches, say so honestly and suggest the closest available options.\n"
+        "- LOCATION RULE — this is the most important rule:\n"
+        "    * If the user asks about a location that has results in the DATABASE RESTAURANTS list → recommend from the database only.\n"
+        "    * If the user asks about a location NOT covered in the database (e.g. India, Los Angeles, London, Tokyo, or any place not in the candidates list) → use the EXTERNAL WEB RESULTS (Tavily) to answer. Clearly mention the restaurant names, locations and any relevant details from those web results.\n"
+        "    * Never say 'I don't have information' if Tavily context is available — use it.\n"
+        "- When using Tavily results, present them naturally as recommendations, mentioning the source is from web search.\n"
         "- User preferences are background context — prioritise what the user says in their current message over their saved preferences.\n"
         "- Keep responses warm, concise, and human. Do not sound robotic or list things unnecessarily.\n"
-        "- Mention restaurant names exactly as they appear in the provided restaurant candidates.\n"
-        "- Only mention location if the user brings it up.\n"
         "- Support multi-turn conversation — remember what was said earlier and respond accordingly.\n\n"
         "Examples of correct behaviour:\n"
-        "- User says 'hi' → respond with a friendly greeting and ask how you can help. Do NOT list restaurants.\n"
-        "- User says 'I want Italian food' → suggest relevant Italian restaurants from the candidates.\n"
-        "- User says 'something romantic for tonight' → suggest romantic options or ask a clarifying question.\n"
-        "- User says 'never mind' → acknowledge and offer to help with something else.\n\n"
+        "- User asks 'best restaurants in San Jose' and DB has San Jose restaurants → recommend from database.\n"
+        "- User asks 'best restaurants in Mumbai' and DB has no Mumbai restaurants → use Tavily web results to answer.\n"
+        "- User asks 'good Italian place in Los Angeles' and DB has no LA restaurants → use Tavily web results.\n"
+        "- User says 'hi' → respond with a friendly greeting. Do NOT list restaurants.\n\n"
         f"User preferences (background context only):\n{preferences}\n\n"
-        f"Restaurant candidates (only recommend from this list):\n{restaurant_context}\n\n"
-        f"External context:\n{tavily_context}"
+        f"Restaurant candidates (from our database):\n{restaurant_context}\n\n"
+        f"External web context (use this for locations not in the database):\n{tavily_context}"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -211,6 +229,6 @@ def extract_recommended_restaurants(reply_text: str, restaurants: List[Restauran
             matched.append(restaurant)
 
     # Only return restaurants the bot actually named in its reply.
-    # If it didn't mention any (e.g. greeting, small talk), return nothing
-    # so no restaurant cards are shown in the UI.
+    # If it didn't mention any (e.g. greeting, small talk, or Tavily-based answer), return nothing
+    # so no database restaurant cards are shown when answering about other cities.
     return matched[:5]
