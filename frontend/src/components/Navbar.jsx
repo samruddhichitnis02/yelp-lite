@@ -30,8 +30,8 @@ const AppNavbar = () => {
                     <Nav>
                         {!isAuthenticated ? (
                             <div className="d-flex gap-2 align-items-center">
-                                <Button variant="outline-dark" as={Link} to="/auth" size="sm">Log In</Button>
-                                <Button variant="primary" as={Link} to="/auth">Sign Up</Button>
+                                <Button variant="outline-dark" as={Link} to="/auth?mode=login" size="sm">Log In</Button>
+                                <Button variant="primary" as={Link} to="/auth?mode=signup">Sign Up</Button>
                             </div>
                         ) : (
                             <Dropdown align="end">

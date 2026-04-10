@@ -66,7 +66,8 @@ const AddRestaurantPage = () => {
         setSuccess('');
         setLoading(true);
         try {
-            const res = await api.post('/restaurants/', {
+            // ✅ Fixed: use owner endpoint so the owner's JWT is accepted
+            const res = await api.post('/restaurants/owner/create', {
                 name: formData.name,
                 cuisine: formData.cuisine,
                 address: formData.address,
