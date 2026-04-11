@@ -19,21 +19,30 @@ from schemas.history import UserHistoryResponse
 
 router = APIRouter(prefix="/me", tags=["me"])
 
+@router.get("/test-me")
+def test_me(current_user = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "name": current_user.get("name")
+    }
+
 @router.get("/user")
-def me_user(current_user: User = Depends(get_current_user)):
+def me_user(current_user = Depends(get_current_user)):
     return {
         "role": "user",
-        "id": current_user.id,
-        "name": current_user.name,
-        "email": current_user.email,
-        "profile_pic": current_user.profile_pic,
-        "phone": current_user.phone,
-        "about": current_user.about,
-        "city": current_user.city,
-        "state": current_user.state,
-        "country": current_user.country,
-        "languages": current_user.languages,
-        "gender": current_user.gender,
+        "id": current_user["id"],
+        "name": current_user.get("name"),
+        "email": current_user.get("email"),
+        "profile_pic": current_user.get("profile_pic"),
+        "phone": current_user.get("phone"),
+        "about": current_user.get("about"),
+        "city": current_user.get("city"),
+        "state": current_user.get("state"),
+        "country": current_user.get("country"),
+        "languages": current_user.get("languages", []),
+        "gender": current_user.get("gender"),
+        "location": current_user.get("location"),
     }
 
 @router.get("/owner")
@@ -181,18 +190,4 @@ def get_my_history(
     return {
         "restaurants_added": restaurants_added,
         "reviews_written": reviews_written,
-    }
-
-## temporary endpoint to test auth
-from fastapi import APIRouter, Depends
-from services.deps import get_current_user
-
-router = APIRouter(prefix="/me", tags=["me"])
-
-@router.get("/test-me")
-def test_me(current_user = Depends(get_current_user)):
-    return {
-        "id": current_user["id"],
-        "email": current_user["email"],
-        "name": current_user.get("name")
     }
