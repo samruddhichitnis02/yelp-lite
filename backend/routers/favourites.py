@@ -73,23 +73,17 @@ def list_favourites(
 
 @router.delete("/{restaurant_id}")
 def delete_favourite(
-    restaurant_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    restaurant_id: str,
+    current_user = Depends(get_current_user),
 ):
-    favourite = (
-        db.query(Favourite)
-        .filter(
-            Favourite.user_id == current_user.id,
-            Favourite.restaurant_id == restaurant_id,
-        )
-        .first()
-    )
+    favourite = mongo_db.favourites.find_one({
+        "user_id": current_user["id"],
+        "restaurant_id": restaurant_id,
+    })
 
     if not favourite:
         raise HTTPException(status_code=404, detail="Favourite not found")
 
-    db.delete(favourite)
-    db.commit()
+    mongo_db.favourites.delete_one({"_id": favourite["_id"]})
 
     return {"message": "Removed from favourites"}
