@@ -438,8 +438,9 @@ def search_restaurants(
     return restaurants
 
 
-@router.get("/owner/profile", response_model=RestaurantPublic)
-def get_owner_restaurant_profile(
+@router.put("/owner/profile", response_model=RestaurantPublic)
+def update_owner_restaurant_profile(
+    payload: RestaurantUpdateRequest,
     restaurant_id: Optional[str] = None,
     current_owner = Depends(get_current_owner),
 ):
@@ -456,25 +457,62 @@ def get_owner_restaurant_profile(
     if not restaurant:
         raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
 
+    update_data = {}
+
+    if payload.name is not None:
+        update_data["name"] = payload.name
+    if payload.address is not None:
+        update_data["address"] = payload.address
+    if payload.city is not None:
+        update_data["city"] = payload.city
+    if payload.state is not None:
+        update_data["state"] = payload.state
+    if payload.zip_code is not None:
+        update_data["zip_code"] = payload.zip_code
+    if payload.cuisine is not None:
+        update_data["cuisine"] = payload.cuisine
+    if payload.price_range is not None:
+        update_data["price_range"] = payload.price_range
+    if payload.phone is not None:
+        update_data["phone"] = payload.phone
+    if payload.website is not None:
+        update_data["website"] = payload.website
+    if payload.hours_of_operation is not None:
+        update_data["hours_of_operation"] = payload.hours_of_operation
+    if payload.description is not None:
+        update_data["description"] = payload.description
+    if payload.image is not None:
+        update_data["image"] = payload.image
+    if payload.amenities is not None:
+        update_data["amenities"] = payload.amenities
+
+    if update_data:
+        mongo_db.restaurants.update_one(
+            {"_id": restaurant["_id"]},
+            {"$set": update_data},
+        )
+
+    updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
+
     return {
-        "id": str(restaurant["_id"]),
-        "owner_id": restaurant.get("owner_id"),
-        "created_by_user_id": restaurant.get("created_by_user_id"),
-        "name": restaurant.get("name"),
-        "address": restaurant.get("address"),
-        "city": restaurant.get("city"),
-        "state": restaurant.get("state"),
-        "zip_code": restaurant.get("zip_code"),
-        "cuisine": restaurant.get("cuisine"),
-        "price_range": restaurant.get("price_range"),
-        "phone": restaurant.get("phone"),
-        "website": restaurant.get("website"),
-        "hours_of_operation": restaurant.get("hours_of_operation"),
-        "amenities": restaurant.get("amenities"),
-        "description": restaurant.get("description"),
-        "image": restaurant.get("image"),
-        "avg_rating": restaurant.get("avg_rating", 0.0),
-        "created_at": restaurant.get("created_at"),
+        "id": str(updated_restaurant["_id"]),
+        "owner_id": updated_restaurant.get("owner_id"),
+        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
+        "name": updated_restaurant.get("name"),
+        "address": updated_restaurant.get("address"),
+        "city": updated_restaurant.get("city"),
+        "state": updated_restaurant.get("state"),
+        "zip_code": updated_restaurant.get("zip_code"),
+        "cuisine": updated_restaurant.get("cuisine"),
+        "price_range": updated_restaurant.get("price_range"),
+        "phone": updated_restaurant.get("phone"),
+        "website": updated_restaurant.get("website"),
+        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
+        "amenities": updated_restaurant.get("amenities"),
+        "description": updated_restaurant.get("description"),
+        "image": updated_restaurant.get("image"),
+        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
+        "created_at": updated_restaurant.get("created_at"),
     }
 
 
