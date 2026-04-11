@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.users import User
 from models.owner import Owner
+from models.review import Review
 from models.preference import Preference
+from models.restaurants import Restaurant
 from models.cuisine_type import CuisineType
 from models.user_cuisine import UserCuisine
 from models.dietary_type import DietaryType
@@ -94,24 +96,53 @@ def update_my_preferences(
 
     return {"message": "Preferences updated successfully"}
 
-@router.get("/history", response_model=UserHistoryResponse)
+@router.get("/history")
 def get_my_history(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    restaurants_added = (
-        db.query(Restaurant)
-        .filter(Restaurant.created_by_user_id == current_user.id)
-        .order_by(Restaurant.created_at.desc())
-        .all()
+    user_id = current_user["id"]
+
+    restaurants_added_docs = list(
+        mongo_db.restaurants.find({"created_by_user_id": user_id}).sort("created_at", -1)
     )
 
-    reviews_written = (
-        db.query(Review)
-        .filter(Review.user_id == current_user.id)
-        .order_by(Review.created_at.desc())
-        .all()
+    reviews_written_docs = list(
+        mongo_db.reviews.find({"user_id": user_id}).sort("created_at", -1)
     )
+
+    restaurants_added = []
+    for restaurant in restaurants_added_docs:
+        restaurants_added.append({
+            "id": str(restaurant["_id"]),
+            "owner_id": restaurant.get("owner_id"),
+            "created_by_user_id": restaurant.get("created_by_user_id"),
+            "name": restaurant.get("name"),
+            "address": restaurant.get("address"),
+            "city": restaurant.get("city"),
+            "state": restaurant.get("state"),
+            "zip_code": restaurant.get("zip_code"),
+            "cuisine": restaurant.get("cuisine"),
+            "price_range": restaurant.get("price_range"),
+            "phone": restaurant.get("phone"),
+            "website": restaurant.get("website"),
+            "hours_of_operation": restaurant.get("hours_of_operation"),
+            "amenities": restaurant.get("amenities"),
+            "description": restaurant.get("description"),
+            "image": restaurant.get("image"),
+            "avg_rating": restaurant.get("avg_rating", 0.0),
+            "created_at": restaurant.get("created_at"),
+        })
+
+    reviews_written = []
+    for review in reviews_written_docs:
+        reviews_written.append({
+            "id": str(review["_id"]),
+            "user_id": review.get("user_id"),
+            "restaurant_id": review.get("restaurant_id"),
+            "rating": review.get("rating"),
+            "comment": review.get("comment"),
+            "created_at": review.get("created_at"),
+        })
 
     return {
         "restaurants_added": restaurants_added,
