@@ -67,37 +67,61 @@ def create_review(
 
 @router.put("/{review_id}", response_model=ReviewPublic)
 def update_review(
-    review_id: int,
+    review_id: str,
     payload: ReviewUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    review = db.query(Review).filter(Review.id == review_id).first()
+    try:
+        review_obj_id = ObjectId(review_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid review id")
+
+    review = mongo_db.reviews.find_one({"_id": review_obj_id})
 
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    if review.user_id != current_user.id:
+    if review.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="You can only edit your own review")
 
-    review.rating = payload.rating
-    review.comment = payload.comment
-
-    db.commit()
-    db.refresh(review)
-
-    avg_rating = (
-        db.query(func.avg(Review.rating))
-        .filter(Review.restaurant_id == review.restaurant_id)
-        .scalar()
+    mongo_db.reviews.update_one(
+        {"_id": review_obj_id},
+        {
+            "$set": {
+                "rating": payload.rating,
+                "comment": payload.comment,
+                "updated_at": datetime.utcnow(),
+            }
+        },
     )
 
-    restaurant = db.query(Restaurant).filter(Restaurant.id == review.restaurant_id).first()
-    if restaurant:
-        restaurant.avg_rating = float(avg_rating) if avg_rating is not None else 0.0
-        db.commit()
+    updated_review = mongo_db.reviews.find_one({"_id": review_obj_id})
 
-    return review
+    restaurant_id = updated_review.get("restaurant_id")
+    restaurant_reviews = list(mongo_db.reviews.find({"restaurant_id": restaurant_id}))
+
+    if restaurant_reviews:
+        avg_rating = sum(r.get("rating", 0) for r in restaurant_reviews) / len(restaurant_reviews)
+    else:
+        avg_rating = 0.0
+
+    try:
+        restaurant_obj_id = ObjectId(restaurant_id)
+        mongo_db.restaurants.update_one(
+            {"_id": restaurant_obj_id},
+            {"$set": {"avg_rating": float(avg_rating)}},
+        )
+    except Exception:
+        pass
+
+    return {
+        "id": str(updated_review["_id"]),
+        "user_id": updated_review.get("user_id"),
+        "restaurant_id": updated_review.get("restaurant_id"),
+        "rating": updated_review.get("rating"),
+        "comment": updated_review.get("comment"),
+        "created_at": updated_review.get("created_at"),
+    }
 
 @router.delete("/{review_id}")
 def delete_review(
