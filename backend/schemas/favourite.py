@@ -1,16 +1,17 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 
 class FavouriteCreateRequest(BaseModel):
-    restaurant_id: int
+    restaurant_id: str
 
 
 class FavouritePublic(BaseModel):
-    id: int
-    user_id: int
-    restaurant_id: int
-    created_at: datetime
+    id: str
+    user_id: Optional[str]
+    restaurant_id: Optional[str]
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

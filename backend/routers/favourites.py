@@ -1,3 +1,7 @@
+from bson import ObjectId
+from datetime import datetime
+from mongodb import db as mongo_db
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -13,35 +17,40 @@ router = APIRouter(prefix="/favourites", tags=["favourites"])
 @router.post("/", response_model=FavouritePublic)
 def create_favourite(
     payload: FavouriteCreateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    restaurant = db.query(Restaurant).filter(Restaurant.id == payload.restaurant_id).first()
+    try:
+        restaurant_obj_id = ObjectId(payload.restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    existing_favourite = (
-        db.query(Favourite)
-        .filter(
-            Favourite.user_id == current_user.id,
-            Favourite.restaurant_id == payload.restaurant_id,
-        )
-        .first()
-    )
+    existing_favourite = mongo_db.favourites.find_one({
+        "user_id": current_user["id"],
+        "restaurant_id": payload.restaurant_id
+    })
 
     if existing_favourite:
         raise HTTPException(status_code=400, detail="Restaurant already in favourites")
 
-    favourite = Favourite(
-        user_id=current_user.id,
-        restaurant_id=payload.restaurant_id,
-    )
+    favourite_doc = {
+        "user_id": current_user["id"],
+        "restaurant_id": payload.restaurant_id,
+        "created_at": datetime.utcnow()
+    }
 
-    db.add(favourite)
-    db.commit()
-    db.refresh(favourite)
+    result = mongo_db.favourites.insert_one(favourite_doc)
+    created_favourite = mongo_db.favourites.find_one({"_id": result.inserted_id})
 
-    return favourite
+    return {
+        "id": str(created_favourite["_id"]),
+        "user_id": created_favourite.get("user_id"),
+        "restaurant_id": created_favourite.get("restaurant_id"),
+        "created_at": created_favourite.get("created_at"),
+    }
 
 @router.get("/", response_model=list[FavouritePublic])
 def list_favourites(
