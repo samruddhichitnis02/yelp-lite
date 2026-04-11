@@ -1,3 +1,5 @@
+from bson import ObjectId
+from mongodb import db as mongo_db
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
@@ -71,75 +73,24 @@ def get_my_preferences(current_user = Depends(get_current_user)):
 @router.put("/preferences")
 def update_my_preferences(
     payload: PreferenceUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    # 1) Validate that all selected IDs actually exist
-
-    if payload.cuisine_ids:
-        cuisine_count = (
-            db.query(CuisineType)
-            .filter(CuisineType.id.in_(payload.cuisine_ids))
-            .count()
-        )
-        if cuisine_count != len(set(payload.cuisine_ids)):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more cuisine_ids are invalid",
-            )
-
-    if payload.dietary_ids:
-        dietary_count = (
-            db.query(DietaryType)
-            .filter(DietaryType.id.in_(payload.dietary_ids))
-            .count()
-        )
-        if dietary_count != len(set(payload.dietary_ids)):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more dietary_ids are invalid",
-            )
-
-    if payload.ambiance_ids:
-        ambiance_count = (
-            db.query(AmbianceType)
-            .filter(AmbianceType.id.in_(payload.ambiance_ids))
-            .count()
-        )
-        if ambiance_count != len(set(payload.ambiance_ids)):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more ambiance_ids are invalid",
-            )
-
-    # 2) Create or update the single-row user_preferences record
-    pref = db.query(Preference).filter(Preference.user_id == current_user.id).first()
-
-    if not pref:
-        pref = Preference(user_id=current_user.id)
-        db.add(pref)
-
-    pref.price_range = payload.price_range
-    pref.sort_preference = payload.sort_preference
-    pref.preferred_location = payload.preferred_location
-    pref.search_radius = payload.search_radius
-
-    # 3) Replace join-table rows for cuisines
-    db.query(UserCuisine).filter(UserCuisine.user_id == current_user.id).delete()
-    for cuisine_id in set(payload.cuisine_ids):
-        db.add(UserCuisine(user_id=current_user.id, cuisine_id=cuisine_id))
-
-    # 4) Replace join-table rows for dietary
-    db.query(UserDietary).filter(UserDietary.user_id == current_user.id).delete()
-    for dietary_id in set(payload.dietary_ids):
-        db.add(UserDietary(user_id=current_user.id, dietary_id=dietary_id))
-
-    # 5) Replace join-table rows for ambiance
-    db.query(UserAmbiance).filter(UserAmbiance.user_id == current_user.id).delete()
-    for ambiance_id in set(payload.ambiance_ids):
-        db.add(UserAmbiance(user_id=current_user.id, ambiance_id=ambiance_id))
-
-    db.commit()
+    mongo_db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {
+            "$set": {
+                "preferences": {
+                    "cuisines": payload.cuisines,
+                    "dietary": payload.dietary,
+                    "ambiance": payload.ambiance,
+                    "price_range": payload.price_range,
+                    "sort_preference": payload.sort_preference,
+                    "preferred_location": payload.preferred_location,
+                    "search_radius": payload.search_radius,
+                }
+            }
+        },
+    )
 
     return {"message": "Preferences updated successfully"}
 
