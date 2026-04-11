@@ -64,38 +64,56 @@ def upload_review_photo(
 
 @router.get("/{review_id}/photos", response_model=List[ReviewPhotoPublic])
 def get_review_photos(
-    review_id: int,
-    db: Session = Depends(get_db),
+    review_id: str,
 ):
-    return db.query(ReviewPhoto).filter(ReviewPhoto.review_id == review_id).all()
+    photos = list(
+        mongo_db.review_photos.find({"review_id": review_id}).sort("created_at", -1)
+    )
+
+    formatted_photos = []
+    for photo in photos:
+        formatted_photos.append({
+            "id": str(photo["_id"]),
+            "review_id": photo.get("review_id"),
+            "photo_path": photo.get("photo_path"),
+            "created_at": photo.get("created_at"),
+        })
+
+    return formatted_photos
 
 
 @router.delete("/{review_id}/photos/{photo_id}")
 def delete_review_photo(
-    review_id: int,
-    photo_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    review_id: str,
+    photo_id: str,
+    current_user = Depends(get_current_user),
 ):
-    review = db.query(Review).filter(Review.id == review_id).first()
+    try:
+        review_obj_id = ObjectId(review_id)
+        photo_obj_id = ObjectId(photo_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    review = mongo_db.reviews.find_one({"_id": review_obj_id})
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    if review.user_id != current_user.id:
+
+    if review.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="You can only delete your own review photos")
 
-    photo = db.query(ReviewPhoto).filter(
-        ReviewPhoto.id == photo_id,
-        ReviewPhoto.review_id == review_id
-    ).first()
+    photo = mongo_db.review_photos.find_one({
+        "_id": photo_obj_id,
+        "review_id": review_id,
+    })
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
 
     try:
-        if os.path.exists(photo.photo_path):
-            os.remove(photo.photo_path)
+        photo_path = photo.get("photo_path")
+        if photo_path and os.path.exists(photo_path):
+            os.remove(photo_path)
     except Exception:
         pass
 
-    db.delete(photo)
-    db.commit()
+    mongo_db.review_photos.delete_one({"_id": photo_obj_id})
     return {"message": "Photo deleted"}
