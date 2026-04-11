@@ -3,9 +3,9 @@ from typing import List, Optional, Literal
 
 
 class PreferenceUpdateRequest(BaseModel):
-    cuisine_ids: List[int] = []
-    dietary_ids: List[int] = []
-    ambiance_ids: List[int] = []
+    cuisines: List[str] = []
+    dietary: List[str] = []
+    ambiance: List[str] = []
 
     price_range: Optional[str] = None
     sort_preference: Optional[Literal["rating", "distance", "popularity", "price"]] = None
