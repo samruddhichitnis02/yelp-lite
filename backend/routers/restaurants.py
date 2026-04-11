@@ -1,4 +1,5 @@
 from mongodb import db as mongo_db
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from models.review import Review
 from schemas.restaurant import (
@@ -439,19 +440,42 @@ def search_restaurants(
 
 @router.get("/owner/profile", response_model=RestaurantPublic)
 def get_owner_restaurant_profile(
-    restaurant_id: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_owner: Owner = Depends(get_current_owner),
+    restaurant_id: Optional[str] = None,
+    current_owner = Depends(get_current_owner),
 ):
-    query = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id)
+    query = {"owner_id": current_owner["id"]}
+
     if restaurant_id:
-        query = query.filter(Restaurant.id == restaurant_id)
-    restaurant = query.first()
+        try:
+            query["_id"] = ObjectId(restaurant_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one(query)
 
     if not restaurant:
         raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
 
-    return restaurant
+    return {
+        "id": str(restaurant["_id"]),
+        "owner_id": restaurant.get("owner_id"),
+        "created_by_user_id": restaurant.get("created_by_user_id"),
+        "name": restaurant.get("name"),
+        "address": restaurant.get("address"),
+        "city": restaurant.get("city"),
+        "state": restaurant.get("state"),
+        "zip_code": restaurant.get("zip_code"),
+        "cuisine": restaurant.get("cuisine"),
+        "price_range": restaurant.get("price_range"),
+        "phone": restaurant.get("phone"),
+        "website": restaurant.get("website"),
+        "hours_of_operation": restaurant.get("hours_of_operation"),
+        "amenities": restaurant.get("amenities"),
+        "description": restaurant.get("description"),
+        "image": restaurant.get("image"),
+        "avg_rating": restaurant.get("avg_rating", 0.0),
+        "created_at": restaurant.get("created_at"),
+    }
 
 
 @router.put("/owner/profile", response_model=RestaurantPublic)
