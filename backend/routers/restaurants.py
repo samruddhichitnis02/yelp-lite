@@ -565,15 +565,19 @@ def update_owner_restaurant_profile(
 
 @router.post("/owner/profile/photo", response_model=RestaurantPublic)
 def upload_owner_restaurant_photo(
-    restaurant_id: Optional[int] = None,
+    restaurant_id: Optional[str] = None,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_owner: Owner = Depends(get_current_owner),
+    current_owner = Depends(get_current_owner),
 ):
-    query = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id)
+    query = {"owner_id": current_owner["id"]}
+
     if restaurant_id:
-        query = query.filter(Restaurant.id == restaurant_id)
-    restaurant = query.first()
+        try:
+            query["_id"] = ObjectId(restaurant_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one(query)
 
     if not restaurant:
         raise HTTPException(
@@ -592,16 +596,41 @@ def upload_owner_restaurant_photo(
     os.makedirs("uploads", exist_ok=True)
 
     extension = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"restaurant_{restaurant.id}_{uuid.uuid4().hex}{extension}"
+    unique_filename = f"restaurant_{str(restaurant['_id'])}_{uuid.uuid4().hex}{extension}"
     file_path = os.path.join("uploads", unique_filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    restaurant.image = f"uploads/{unique_filename}"
-    db.commit()
-    db.refresh(restaurant)
-    return restaurant
+    rel_path = f"uploads/{unique_filename}"
+
+    mongo_db.restaurants.update_one(
+        {"_id": restaurant["_id"]},
+        {"$set": {"image": rel_path}},
+    )
+
+    updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
+
+    return {
+        "id": str(updated_restaurant["_id"]),
+        "owner_id": updated_restaurant.get("owner_id"),
+        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
+        "name": updated_restaurant.get("name"),
+        "address": updated_restaurant.get("address"),
+        "city": updated_restaurant.get("city"),
+        "state": updated_restaurant.get("state"),
+        "zip_code": updated_restaurant.get("zip_code"),
+        "cuisine": updated_restaurant.get("cuisine"),
+        "price_range": updated_restaurant.get("price_range"),
+        "phone": updated_restaurant.get("phone"),
+        "website": updated_restaurant.get("website"),
+        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
+        "amenities": updated_restaurant.get("amenities"),
+        "description": updated_restaurant.get("description"),
+        "image": updated_restaurant.get("image"),
+        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
+        "created_at": updated_restaurant.get("created_at"),
+    }
 
 
 @router.post("/{restaurant_id}/claim", response_model=RestaurantPublic)
