@@ -16,7 +16,7 @@ class UserLoginRequest(BaseModel):
 # ---------- Responses ----------
 
 class UserPublic(BaseModel):
-    id: int
+    id: str
     name: str
     email: EmailStr
     location: Optional[str] = None

@@ -1,43 +1,34 @@
 # backend/routers/users.py
-import os
 import shutil
 from uuid import uuid4
 from pathlib import Path
 from typing import Optional
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException, status
-from sqlalchemy.orm import Session
 
-from database import get_db
-from models.users import User
+from mongodb import db as mongo_db
 from schemas.users import UserPublic
 from services.deps import get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 UPLOAD_DIR = Path("uploads")
-# ensure uploads dir exists
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _save_upload_file(upload_file: UploadFile, dest_dir: Path) -> str:
     """
     Save an UploadFile to dest_dir and return the relative path (uploads/xxx.ext).
-    Uses a uuid filename to avoid collisions and strips dangerous characters.
     """
-    # get extension safely
     suffix = Path(upload_file.filename).suffix or ""
-    # normalize extension to lower
     suffix = suffix.lower()
-    # create random filename
     fname = f"{uuid4().hex}{suffix}"
     dest_path = dest_dir / fname
 
-    # write file to disk (stream)
     with dest_path.open("wb") as out_file:
         shutil.copyfileobj(upload_file.file, out_file)
 
-    # return path relative to project root (will be served at /uploads/...)
     return f"uploads/{fname}"
 
 
@@ -53,31 +44,46 @@ def update_profile(
     languages: Optional[str] = Form(None),
     gender: Optional[str] = Form(None),
     profile_pic: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    user = db.query(User).filter(User.id == current_user.id).first()
+    user = mongo_db.users.find_one({"_id": ObjectId(current_user["id"])})
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    update_data = {}
 
     if name is not None:
-        user.name = name.strip() or user.name
+        cleaned_name = name.strip()
+        if cleaned_name:
+            update_data["name"] = cleaned_name
+
     if location is not None:
-        user.location = location.strip()
+        update_data["location"] = location.strip()
+
     if phone is not None:
-        user.phone = phone.strip()
+        update_data["phone"] = phone.strip()
+
     if about is not None:
-        user.about = about.strip()
+        update_data["about"] = about.strip()
+
     if city is not None:
-        user.city = city.strip()
+        update_data["city"] = city.strip()
+
     if state is not None:
-        user.state = state.strip()
+        update_data["state"] = state.strip()
+
     if country is not None:
-        user.country = country.strip()
+        update_data["country"] = country.strip()
+
     if languages is not None:
-        user.languages = languages.strip()
+        # storing as string for now, to match your current API shape
+        update_data["languages"] = languages.strip()
+
     if gender is not None:
-        user.gender = gender.strip()
+        update_data["gender"] = gender.strip()
 
     if profile_pic is not None:
         try:
@@ -85,8 +91,9 @@ def update_profile(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed saving file: {e}")
 
-        old = user.profile_pic
-        user.profile_pic = rel_path
+        old = user.get("profile_pic")
+        update_data["profile_pic"] = rel_path
+
         if old:
             try:
                 old_path = Path(old)
@@ -95,7 +102,30 @@ def update_profile(
             except Exception:
                 pass
 
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    if update_data:
+        mongo_db.users.update_one(
+            {"_id": ObjectId(current_user["id"])},
+            {"$set": update_data},
+        )
+
+    updated_user = mongo_db.users.find_one({"_id": ObjectId(current_user["id"])})
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found after update",
+        )
+
+    return {
+        "id": str(updated_user["_id"]),
+        "name": updated_user.get("name"),
+        "email": updated_user.get("email"),
+        "profile_pic": updated_user.get("profile_pic"),
+        "location": updated_user.get("location"),
+        "phone": updated_user.get("phone"),
+        "about": updated_user.get("about"),
+        "city": updated_user.get("city"),
+        "state": updated_user.get("state"),
+        "country": updated_user.get("country"),
+        "languages": updated_user.get("languages"),
+        "gender": updated_user.get("gender"),
+    }
