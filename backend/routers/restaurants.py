@@ -654,45 +654,60 @@ def get_owner_dashboard(
     }
 
 
+from bson import ObjectId
+
 @router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)
-def get_restaurant_details(
-    restaurant_id: int,
-    db: Session = Depends(get_db),
-):
-    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
+def get_restaurant_details(restaurant_id: str):
+    try:
+        restaurant_obj_id = ObjectId(restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
 
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    restaurant.view_count = (restaurant.view_count or 0) + 1
-    db.commit()
-    db.refresh(restaurant)
-
-    reviews = (
-        db.query(Review)
-        .filter(Review.restaurant_id == restaurant_id)
-        .order_by(Review.created_at.desc())
-        .all()
+    mongo_db.restaurants.update_one(
+        {"_id": restaurant_obj_id},
+        {"$inc": {"view_count": 1}}
     )
 
+    updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
+
+    reviews = list(mongo_db.reviews.find({"restaurant_id": restaurant_id}).sort("created_at", -1))
+
+    formatted_reviews = []
+    for review in reviews:
+        formatted_reviews.append({
+            "id": str(review["_id"]),
+            "user_id": review.get("user_id"),
+            "restaurant_id": review.get("restaurant_id"),
+            "rating": review.get("rating"),
+            "comment": review.get("comment"),
+            "created_at": review.get("created_at"),
+            "updated_at": review.get("updated_at"),
+        })
+
     return {
-        "id": restaurant.id,
-        "owner_id": restaurant.owner_id,
-        "name": restaurant.name,
-        "address": restaurant.address,
-        "city": restaurant.city,
-        "state": restaurant.state,
-        "zip_code": restaurant.zip_code,
-        "cuisine": restaurant.cuisine,
-        "price_range": restaurant.price_range,
-        "phone": restaurant.phone,
-        "website": restaurant.website,
-        "hours_of_operation": restaurant.hours_of_operation,
-        "amenities": restaurant.amenities,
-        "description": restaurant.description,
-        "image": restaurant.image,
-        "avg_rating": restaurant.avg_rating,
-        "created_at": restaurant.created_at,
-        "review_count": len(reviews),
-        "reviews": reviews,
+        "id": str(updated_restaurant["_id"]),
+        "owner_id": updated_restaurant.get("owner_id"),
+        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
+        "name": updated_restaurant.get("name"),
+        "address": updated_restaurant.get("address"),
+        "city": updated_restaurant.get("city"),
+        "state": updated_restaurant.get("state"),
+        "zip_code": updated_restaurant.get("zip_code"),
+        "cuisine": updated_restaurant.get("cuisine"),
+        "price_range": updated_restaurant.get("price_range"),
+        "phone": updated_restaurant.get("phone"),
+        "website": updated_restaurant.get("website"),
+        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
+        "amenities": updated_restaurant.get("amenities"),
+        "description": updated_restaurant.get("description"),
+        "image": updated_restaurant.get("image"),
+        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
+        "created_at": updated_restaurant.get("created_at"),
+        "review_count": len(formatted_reviews),
+        "reviews": formatted_reviews,
     }

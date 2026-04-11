@@ -1,11 +1,12 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
 
 
 class ReviewPublic(BaseModel):
-    id: int
-    user_id: int
-    restaurant_id: int
+    id: str
+    user_id: Optional[str]
+    restaurant_id: Optional[str]
     rating: int
     comment: str | None = None
     created_at: datetime
@@ -14,7 +15,7 @@ class ReviewPublic(BaseModel):
         from_attributes = True
 
 class ReviewCreateRequest(BaseModel):
-    restaurant_id: int
+    restaurant_id: str
     rating: int = Field(..., ge=1, le=5)
     comment: str | None = None
 
