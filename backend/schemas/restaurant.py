@@ -22,8 +22,8 @@ class RestaurantCreateRequest(BaseModel):
 
 
 class RestaurantPublic(BaseModel):
-    id: int
-    owner_id: Optional[int] = None
+    id: str
+    owner_id: Optional[str] = None
 
     name: str
     address: Optional[str] = None
@@ -41,6 +41,7 @@ class RestaurantPublic(BaseModel):
     image: Optional[str] = None
     avg_rating: float
     created_at: Optional[datetime] = None
+    created_by_user_id: Optional[str] = None
 
     class Config:
         from_attributes = True

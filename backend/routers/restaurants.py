@@ -1,3 +1,4 @@
+from mongodb import db as mongo_db
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from models.review import Review
 from schemas.restaurant import (
@@ -266,32 +267,52 @@ def analyze_sentiment(comments):
 @router.post("/", response_model=RestaurantPublic)
 def create_restaurant(
     payload: RestaurantCreateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    restaurant = Restaurant(
-        owner_id=None,
-        created_by_user_id=current_user.id,
-        name=payload.name,
-        address=payload.address,
-        city=payload.city,
-        state=payload.state,
-        zip_code=payload.zip_code,
-        cuisine=payload.cuisine,
-        price_range=payload.price_range,
-        phone=payload.phone,
-        website=payload.website,
-        hours_of_operation=payload.hours_of_operation,
-        amenities=payload.amenities,
-        description=payload.description,
-        image=payload.image,
-        avg_rating=0.0,
-        view_count=0,
-    )
-    db.add(restaurant)
-    db.commit()
-    db.refresh(restaurant)
-    return restaurant
+    restaurant_doc = {
+        "owner_id": None,
+        "created_by_user_id": current_user["id"],
+        "name": payload.name,
+        "address": payload.address,
+        "city": payload.city,
+        "state": payload.state,
+        "zip_code": payload.zip_code,
+        "cuisine": payload.cuisine,
+        "price_range": payload.price_range,
+        "phone": payload.phone,
+        "website": payload.website,
+        "hours_of_operation": payload.hours_of_operation,
+        "amenities": payload.amenities,
+        "description": payload.description,
+        "image": payload.image,
+        "avg_rating": 0.0,
+        "view_count": 0,
+    }
+
+    result = mongo_db.restaurants.insert_one(restaurant_doc)
+
+    created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
+
+    return {
+        "id": str(created_restaurant["_id"]),
+        "owner_id": created_restaurant.get("owner_id"),
+        "created_by_user_id": created_restaurant.get("created_by_user_id"),
+        "name": created_restaurant.get("name"),
+        "address": created_restaurant.get("address"),
+        "city": created_restaurant.get("city"),
+        "state": created_restaurant.get("state"),
+        "zip_code": created_restaurant.get("zip_code"),
+        "cuisine": created_restaurant.get("cuisine"),
+        "price_range": created_restaurant.get("price_range"),
+        "phone": created_restaurant.get("phone"),
+        "website": created_restaurant.get("website"),
+        "hours_of_operation": created_restaurant.get("hours_of_operation"),
+        "amenities": created_restaurant.get("amenities"),
+        "description": created_restaurant.get("description"),
+        "image": created_restaurant.get("image"),
+        "avg_rating": created_restaurant.get("avg_rating"),
+        "view_count": created_restaurant.get("view_count"),
+    }
 
 
 @router.post("/owner/create", response_model=RestaurantPublic)
