@@ -1,140 +1,180 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from mongodb import db as mongo_db
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
-
-from database import get_db
-from models.users import User
-from models.owner import Owner
-
 from fastapi.security import OAuth2PasswordRequestForm
-from schemas.users import UserSignupRequest, UserLoginRequest
-from schemas.owner import OwnerSignupRequest, OwnerLoginRequest
+from bson import ObjectId
+from datetime import datetime, timedelta
 
-from services.auth_service import hash_password, verify_password, create_access_token, decode_access_token
+from schemas.users import UserSignupRequest
+from schemas.owner import OwnerSignupRequest, OwnerLoginRequest
+from services.auth_service import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    decode_access_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-# ── Shared request schemas for forgot/reset ──────────────────────────────────
-
 class ForgotPasswordRequest(BaseModel):
     email: str
+
 
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
 
+def create_session(token: str, role: str, user_id: str = None, owner_id: str = None):
+    mongo_db.sessions.insert_one(
+        {
+            "token": token,
+            "role": role,
+            "user_id": user_id,
+            "owner_id": owner_id,
+            "created_at": datetime.utcnow(),
+            "expires_at": datetime.utcnow() + timedelta(days=1),
+        }
+    )
+
+
 @router.post("/user/signup")
-def user_signup(payload: UserSignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+def user_signup(payload: UserSignupRequest):
+    existing = mongo_db.users.find_one({"email": payload.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    user_doc = {
+        "name": payload.name,
+        "email": payload.email,
+        "hashed_password": hash_password(payload.password),
+        "profile_pic": None,
+        "location": None,
+        "phone": None,
+        "about": None,
+        "city": None,
+        "state": None,
+        "country": None,
+        "languages": None,
+        "gender": None,
+        "created_at": datetime.utcnow(),
+    }
 
-    token = create_access_token({"sub": str(user.id), "role": "user"})
+    result = mongo_db.users.insert_one(user_doc)
+    user_id = str(result.inserted_id)
+
+    token = create_access_token({"sub": user_id, "role": "user"})
+    create_session(token=token, role="user", user_id=user_id)
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": "user",
         "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "profile_pic": user.profile_pic,
+            "id": user_id,
+            "name": user_doc["name"],
+            "email": user_doc["email"],
+            "profile_pic": user_doc["profile_pic"],
         },
     }
 
 
 @router.post("/user/login")
-def user_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # OAuth2 uses "username" field; we treat it as email
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+def user_login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = mongo_db.users.find_one({"email": form_data.username})
+
+    if not user or "hashed_password" not in user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    token = create_access_token({"sub": str(user.id), "role": "user"})
+    user_id = str(user["_id"])
+    token = create_access_token({"sub": user_id, "role": "user"})
+    create_session(token=token, role="user", user_id=user_id)
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": "user",
         "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "profile_pic": user.profile_pic,
+            "id": user_id,
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "profile_pic": user.get("profile_pic"),
         },
     }
 
 
 @router.post("/owner/signup")
-def owner_signup(payload: OwnerSignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(Owner).filter(Owner.email == payload.email).first()
+def owner_signup(payload: OwnerSignupRequest):
+    existing = mongo_db.owners.find_one({"email": payload.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    owner = Owner(
-        name=payload.name,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-        location=payload.location,
-    )
-    db.add(owner)
-    db.commit()
-    db.refresh(owner)
+    owner_doc = {
+        "name": payload.name,
+        "email": payload.email,
+        "hashed_password": hash_password(payload.password),
+        "location": payload.location,
+        "created_at": datetime.utcnow(),
+    }
 
-    token = create_access_token({"sub": str(owner.id), "role": "owner"})
+    result = mongo_db.owners.insert_one(owner_doc)
+    owner_id = str(result.inserted_id)
+
+    token = create_access_token({"sub": owner_id, "role": "owner"})
+    create_session(token=token, role="owner", owner_id=owner_id)
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": "owner",
         "owner": {
-            "id": owner.id,
-            "name": owner.name,
-            "email": owner.email,
-            "location": owner.location,
+            "id": owner_id,
+            "name": owner_doc["name"],
+            "email": owner_doc["email"],
+            "location": owner_doc["location"],
         },
     }
 
 
 @router.post("/owner/login")
-def owner_login(payload: OwnerLoginRequest, db: Session = Depends(get_db)):
-    owner = db.query(Owner).filter(Owner.email == payload.email).first()
-    if not owner or not verify_password(payload.password, owner.hashed_password):
+def owner_login(payload: OwnerLoginRequest):
+    owner = mongo_db.owners.find_one({"email": payload.email})
+
+    if not owner or "hashed_password" not in owner or not verify_password(payload.password, owner["hashed_password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    token = create_access_token({"sub": str(owner.id), "role": "owner"})
+    owner_id = str(owner["_id"])
+    token = create_access_token({"sub": owner_id, "role": "owner"})
+    create_session(token=token, role="owner", owner_id=owner_id)
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "role": "owner",
         "owner": {
-            "id": owner.id,
-            "name": owner.name,
-            "email": owner.email,
+            "id": owner_id,
+            "name": owner.get("name"),
+            "email": owner.get("email"),
+            "location": owner.get("location"),
         },
     }
 
-# ── Forgot Password (generates a short-lived reset token) ────────────────────
 
 @router.post("/user/forgot-password")
-def user_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+def user_forgot_password(payload: ForgotPasswordRequest):
+    user = mongo_db.users.find_one({"email": payload.email})
     if not user:
-        return {"message": "If that email is registered, a reset token has been generated.", "reset_token": None}
+        return {
+            "message": "If that email is registered, a reset token has been generated.",
+            "reset_token": None,
+        }
 
     reset_token = create_access_token(
-        {"sub": str(user.id), "role": "user", "purpose": "reset"},
+        {"sub": str(user["_id"]), "role": "user", "purpose": "reset"},
         expires_minutes=15,
     )
+
     return {
         "message": "Reset token generated. Use it at /auth/user/reset-password within 15 minutes.",
         "reset_token": reset_token,
@@ -142,7 +182,7 @@ def user_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(g
 
 
 @router.post("/user/reset-password")
-def user_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def user_reset_password(payload: ResetPasswordRequest):
     try:
         data = decode_access_token(payload.token)
     except ValueError:
@@ -151,30 +191,35 @@ def user_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get
     if data.get("purpose") != "reset" or data.get("role") != "user":
         raise HTTPException(status_code=400, detail="Invalid reset token.")
 
-    user = db.query(User).filter(User.id == int(data["sub"])).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
     if len(payload.new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
 
-    user.hashed_password = hash_password(payload.new_password)
-    db.commit()
+    user = mongo_db.users.find_one({"_id": ObjectId(data["sub"])})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    mongo_db.users.update_one(
+        {"_id": ObjectId(data["sub"])},
+        {"$set": {"hashed_password": hash_password(payload.new_password)}},
+    )
+
     return {"message": "Password reset successfully. You can now log in."}
 
 
-# ── Forgot Password — Owner ──────────────────────────────────────────────────
-
 @router.post("/owner/forgot-password")
-def owner_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    owner = db.query(Owner).filter(Owner.email == payload.email).first()
+def owner_forgot_password(payload: ForgotPasswordRequest):
+    owner = mongo_db.owners.find_one({"email": payload.email})
     if not owner:
-        return {"message": "If that email is registered, a reset token has been generated.", "reset_token": None}
+        return {
+            "message": "If that email is registered, a reset token has been generated.",
+            "reset_token": None,
+        }
 
     reset_token = create_access_token(
-        {"sub": str(owner.id), "role": "owner", "purpose": "reset"},
+        {"sub": str(owner["_id"]), "role": "owner", "purpose": "reset"},
         expires_minutes=15,
     )
+
     return {
         "message": "Reset token generated. Use it at /auth/owner/reset-password within 15 minutes.",
         "reset_token": reset_token,
@@ -182,7 +227,7 @@ def owner_forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
 
 
 @router.post("/owner/reset-password")
-def owner_reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def owner_reset_password(payload: ResetPasswordRequest):
     try:
         data = decode_access_token(payload.token)
     except ValueError:
@@ -191,13 +236,16 @@ def owner_reset_password(payload: ResetPasswordRequest, db: Session = Depends(ge
     if data.get("purpose") != "reset" or data.get("role") != "owner":
         raise HTTPException(status_code=400, detail="Invalid reset token.")
 
-    owner = db.query(Owner).filter(Owner.id == int(data["sub"])).first()
-    if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found.")
-
     if len(payload.new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
 
-    owner.hashed_password = hash_password(payload.new_password)
-    db.commit()
+    owner = mongo_db.owners.find_one({"_id": ObjectId(data["sub"])})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found.")
+
+    mongo_db.owners.update_one(
+        {"_id": ObjectId(data["sub"])},
+        {"$set": {"hashed_password": hash_password(payload.new_password)}},
+    )
+
     return {"message": "Password reset successfully. You can now log in."}
