@@ -54,17 +54,22 @@ def create_favourite(
 
 @router.get("/", response_model=list[FavouritePublic])
 def list_favourites(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    favourites = (
-        db.query(Favourite)
-        .filter(Favourite.user_id == current_user.id)
-        .order_by(Favourite.created_at.desc())
-        .all()
+    favourites = list(
+        mongo_db.favourites.find({"user_id": current_user["id"]}).sort("created_at", -1)
     )
 
-    return favourites
+    formatted_favourites = []
+    for favourite in favourites:
+        formatted_favourites.append({
+            "id": str(favourite["_id"]),
+            "user_id": favourite.get("user_id"),
+            "restaurant_id": favourite.get("restaurant_id"),
+            "created_at": favourite.get("created_at"),
+        })
+
+    return formatted_favourites
 
 @router.delete("/{restaurant_id}")
 def delete_favourite(
