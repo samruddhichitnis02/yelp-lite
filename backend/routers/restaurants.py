@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from models.review import Review
-from schemas.restaurant import RestaurantCreateRequest, RestaurantPublic, RestaurantDetailPublic, RestaurantUpdateRequest
+from schemas.restaurant import (
+    RestaurantCreateRequest,
+    RestaurantPublic,
+    RestaurantDetailPublic,
+    RestaurantUpdateRequest,
+)
 from sqlalchemy.orm import Session
-
 from typing import Optional, List
 from sqlalchemy import or_
 
@@ -15,10 +19,248 @@ from models.owner import Owner
 import os
 import shutil
 import uuid
+import re
 from models.favourite import Favourite
 
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
+
+
+POSITIVE_WORDS = {
+    "good",
+    "great",
+    "amazing",
+    "awesome",
+    "excellent",
+    "love",
+    "loved",
+    "friendly",
+    "clean",
+    "fresh",
+    "delicious",
+    "perfect",
+    "best",
+    "nice",
+    "wonderful",
+    "fantastic",
+    "fast",
+    "tasty",
+    "pleasant",
+    "favorite",
+    "enjoyed",
+    "recommend",
+    "recommended",
+    "beautiful",
+    "attentive",
+    "yummy",
+    "awesome",
+    "superb",
+}
+
+NEGATIVE_WORDS = {
+    "bad",
+    "terrible",
+    "awful",
+    "worst",
+    "slow",
+    "dirty",
+    "cold",
+    "rude",
+    "expensive",
+    "bland",
+    "disappointing",
+    "poor",
+    "hate",
+    "horrible",
+    "late",
+    "noisy",
+    "average",
+    "overpriced",
+    "mediocre",
+    "unpleasant",
+    "boring",
+    "disgusting",
+    "gross",
+    "tasteless",
+    "stale",
+    "unfriendly",
+}
+
+NEGATION_WORDS = {
+    "not",
+    "no",
+    "never",
+    "none",
+    "didnt",
+    "don't",
+    "dont",
+    "isnt",
+    "isn't",
+    "wasnt",
+    "wasn't",
+    "werent",
+    "weren't",
+    "cant",
+    "can't",
+    "couldnt",
+    "couldn't",
+    "wouldnt",
+    "wouldn't",
+    "shouldnt",
+    "shouldn't",
+    "wont",
+    "won't",
+    "hardly",
+    "barely",
+}
+
+POSITIVE_PHRASES = [
+    "would come back",
+    "highly recommend",
+    "really good",
+    "very good",
+    "so good",
+    "great service",
+    "great food",
+    "loved the food",
+    "loved the service",
+    "excellent service",
+    "excellent food",
+]
+
+NEGATIVE_PHRASES = [
+    "didnt like",
+    "didn't like",
+    "do not like",
+    "not good",
+    "not great",
+    "not tasty",
+    "not fresh",
+    "not clean",
+    "not worth",
+    "would not recommend",
+    "wouldn't recommend",
+    "never coming back",
+    "won't come back",
+    "bad service",
+    "bad food",
+    "terrible service",
+    "terrible food",
+    "poor service",
+    "poor food",
+    "too salty",
+    "too expensive",
+    "too noisy",
+    "very slow",
+    "service was slow",
+    "food was cold",
+]
+
+
+def normalize_text(text: str) -> str:
+    text = text.lower()
+    text = text.replace("didn't", "didnt")
+    text = text.replace("don't", "dont")
+    text = text.replace("isn't", "isnt")
+    text = text.replace("wasn't", "wasnt")
+    text = text.replace("weren't", "werent")
+    text = text.replace("can't", "cant")
+    text = text.replace("couldn't", "couldnt")
+    text = text.replace("wouldn't", "wouldnt")
+    text = text.replace("shouldn't", "shouldnt")
+    text = text.replace("won't", "wont")
+    return text
+
+
+def tokenize(text: str):
+    return re.findall(r"[a-z]+", normalize_text(text))
+
+
+def analyze_single_comment(comment: str):
+    if not comment or not comment.strip():
+        return "neutral", 0, 0
+
+    normalized = normalize_text(comment)
+    words = tokenize(comment)
+
+    pos_score = 0
+    neg_score = 0
+
+    for phrase in POSITIVE_PHRASES:
+        if phrase in normalized:
+            pos_score += 2
+
+    for phrase in NEGATIVE_PHRASES:
+        if phrase in normalized:
+            neg_score += 2
+
+    for i, word in enumerate(words):
+        prev1 = words[i - 1] if i - 1 >= 0 else ""
+        prev2 = words[i - 2] if i - 2 >= 0 else ""
+
+        is_negated = prev1 in NEGATION_WORDS or prev2 in NEGATION_WORDS
+
+        if word in POSITIVE_WORDS:
+            if is_negated:
+                neg_score += 1
+            else:
+                pos_score += 1
+
+        elif word in NEGATIVE_WORDS:
+            if is_negated:
+                pos_score += 1
+            else:
+                neg_score += 1
+
+    if neg_score > pos_score:
+        return "negative", pos_score, neg_score
+    if pos_score > neg_score:
+        return "positive", pos_score, neg_score
+    return "neutral", pos_score, neg_score
+
+
+def analyze_sentiment(comments):
+    positive = 0
+    neutral = 0
+    negative = 0
+
+    for comment in comments:
+        label, _, _ = analyze_single_comment(comment)
+
+        if label == "positive":
+            positive += 1
+        elif label == "negative":
+            negative += 1
+        else:
+            neutral += 1
+
+    total = positive + neutral + negative
+
+    if total == 0:
+        return {
+            "label": "No Data",
+            "score": 0,
+            "positive": 0,
+            "neutral": 0,
+            "negative": 0,
+        }
+
+    score = round(((positive - negative) / total) * 100, 1)
+
+    if score >= 30:
+        label = "Positive"
+    elif score <= -30:
+        label = "Negative"
+    else:
+        label = "Mixed"
+
+    return {
+        "label": label,
+        "score": score,
+        "positive": positive,
+        "neutral": neutral,
+        "negative": negative,
+    }
 
 
 @router.post("/", response_model=RestaurantPublic)
@@ -44,6 +286,7 @@ def create_restaurant(
         description=payload.description,
         image=payload.image,
         avg_rating=0.0,
+        view_count=0,
     )
     db.add(restaurant)
     db.commit()
@@ -74,6 +317,7 @@ def owner_create_restaurant(
         description=payload.description,
         image=payload.image,
         avg_rating=0.0,
+        view_count=0,
     )
     db.add(restaurant)
     db.commit()
@@ -95,7 +339,6 @@ def search_restaurants(
         query = query.filter(Restaurant.name.ilike(f"%{name}%"))
 
     if cuisine:
-        # OR across all selected cuisines
         query = query.filter(
             or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in cuisine])
         )
@@ -192,14 +435,12 @@ def upload_owner_restaurant_photo(
     db: Session = Depends(get_db),
     current_owner: Owner = Depends(get_current_owner),
 ):
-    # Build query: must be owned by this owner
     query = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id)
     if restaurant_id:
         query = query.filter(Restaurant.id == restaurant_id)
     restaurant = query.first()
 
     if not restaurant:
-        # Give a clear error so the frontend can surface it
         raise HTTPException(
             status_code=404,
             detail=(
@@ -256,26 +497,58 @@ def get_owner_dashboard(
     restaurants = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).all()
 
     if not restaurants:
-        raise HTTPException(status_code=404, detail="No restaurant found for this owner")
+        return {
+            "restaurants": [],
+            "review_count": 0,
+            "favourites_count": 0,
+            "avg_rating": 0.0,
+            "total_views": 0,
+            "rating_distribution": [
+                {"stars": 5, "count": 0},
+                {"stars": 4, "count": 0},
+                {"stars": 3, "count": 0},
+                {"stars": 2, "count": 0},
+                {"stars": 1, "count": 0},
+            ],
+            "sentiment_summary": {
+                "label": "No Data",
+                "score": 0,
+                "positive": 0,
+                "neutral": 0,
+                "negative": 0,
+            },
+            "recent_reviews": [],
+        }
 
     total_review_count = 0
     total_favourites_count = 0
-    all_recent_reviews = []
+    total_views = 0
+    all_reviews = []
+    all_comments = []
+    rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     restaurant_list = []
 
     for restaurant in restaurants:
-        review_count = db.query(Review).filter(Review.restaurant_id == restaurant.id).count()
-        favourites_count = db.query(Favourite).filter(Favourite.restaurant_id == restaurant.id).count()
-        recent_reviews = (
+        restaurant_reviews = (
             db.query(Review)
             .filter(Review.restaurant_id == restaurant.id)
             .order_by(Review.created_at.desc())
-            .limit(5)
             .all()
         )
+
+        review_count = len(restaurant_reviews)
+        favourites_count = db.query(Favourite).filter(Favourite.restaurant_id == restaurant.id).count()
+
         total_review_count += review_count
         total_favourites_count += favourites_count
-        all_recent_reviews.extend(recent_reviews)
+        total_views += restaurant.view_count or 0
+        all_reviews.extend(restaurant_reviews)
+
+        for review in restaurant_reviews:
+            if review.rating in rating_counts:
+                rating_counts[review.rating] += 1
+            if review.comment:
+                all_comments.append(review.comment)
 
         restaurant_list.append({
             "id": restaurant.id,
@@ -295,18 +568,35 @@ def get_owner_dashboard(
             "description": restaurant.description,
             "image": restaurant.image,
             "avg_rating": restaurant.avg_rating,
+            "view_count": restaurant.view_count or 0,
             "review_count": review_count,
             "favourites_count": favourites_count,
         })
 
-    avg_rating = sum(r.avg_rating for r in restaurants) / len(restaurants)
+    avg_rating = round(
+        sum((restaurant.avg_rating or 0) for restaurant in restaurants) / len(restaurants),
+        1
+    ) if restaurants else 0.0
+
+    rating_distribution = [
+        {"stars": 5, "count": rating_counts[5]},
+        {"stars": 4, "count": rating_counts[4]},
+        {"stars": 3, "count": rating_counts[3]},
+        {"stars": 2, "count": rating_counts[2]},
+        {"stars": 1, "count": rating_counts[1]},
+    ]
+
+    sentiment_summary = analyze_sentiment(all_comments)
 
     return {
         "restaurants": restaurant_list,
         "review_count": total_review_count,
         "favourites_count": total_favourites_count,
-        "avg_rating": round(avg_rating, 1),
-        "recent_reviews": sorted(all_recent_reviews, key=lambda x: x.created_at, reverse=True)[:5],
+        "avg_rating": avg_rating,
+        "total_views": total_views,
+        "rating_distribution": rating_distribution,
+        "sentiment_summary": sentiment_summary,
+        "recent_reviews": sorted(all_reviews, key=lambda x: x.created_at, reverse=True)[:5],
     }
 
 
@@ -319,6 +609,10 @@ def get_restaurant_details(
 
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    restaurant.view_count = (restaurant.view_count or 0) + 1
+    db.commit()
+    db.refresh(restaurant)
 
     reviews = (
         db.query(Review)
@@ -344,6 +638,7 @@ def get_restaurant_details(
         "description": restaurant.description,
         "image": restaurant.image,
         "avg_rating": restaurant.avg_rating,
+        "created_at": restaurant.created_at,
         "review_count": len(reviews),
         "reviews": reviews,
     }
