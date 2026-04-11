@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from models.owner import Owner
 
+from bson import ObjectId
+from datetime import datetime
+from mongodb import db as mongo_db
 
 from database import get_db
 from models.review import Review
@@ -16,34 +19,51 @@ router = APIRouter(prefix="/reviews", tags=["reviews"])
 @router.post("/", response_model=ReviewPublic)
 def create_review(
     payload: ReviewCreateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    restaurant = db.query(Restaurant).filter(Restaurant.id == payload.restaurant_id).first()
+    try:
+        restaurant_obj_id = ObjectId(payload.restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    review = Review(
-        user_id=current_user.id,
-        restaurant_id=payload.restaurant_id,
-        rating=payload.rating,
-        comment=payload.comment,
+    review_doc = {
+        "user_id": current_user["id"],
+        "restaurant_id": payload.restaurant_id,
+        "rating": payload.rating,
+        "comment": payload.comment,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+
+    result = mongo_db.reviews.insert_one(review_doc)
+    created_review = mongo_db.reviews.find_one({"_id": result.inserted_id})
+
+    restaurant_reviews = list(
+        mongo_db.reviews.find({"restaurant_id": payload.restaurant_id})
     )
 
-    db.add(review)
-    db.commit()
-    db.refresh(review)
+    if restaurant_reviews:
+        avg_rating = sum(r.get("rating", 0) for r in restaurant_reviews) / len(restaurant_reviews)
+    else:
+        avg_rating = 0.0
 
-    avg_rating = (
-        db.query(func.avg(Review.rating))
-        .filter(Review.restaurant_id == payload.restaurant_id)
-        .scalar()
+    mongo_db.restaurants.update_one(
+        {"_id": restaurant_obj_id},
+        {"$set": {"avg_rating": float(avg_rating)}},
     )
 
-    restaurant.avg_rating = float(avg_rating) if avg_rating is not None else 0.0
-    db.commit()
-
-    return review
+    return {
+        "id": str(created_review["_id"]),
+        "user_id": created_review.get("user_id"),
+        "restaurant_id": created_review.get("restaurant_id"),
+        "rating": created_review.get("rating"),
+        "comment": created_review.get("comment"),
+        "created_at": created_review.get("created_at"),
+    }
 
 @router.put("/{review_id}", response_model=ReviewPublic)
 def update_review(
