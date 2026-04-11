@@ -352,37 +352,70 @@ def search_restaurants(
     cuisine: Optional[List[str]] = Query(default=None),
     keyword: Optional[str] = None,
     location: Optional[str] = None,
-    db: Session = Depends(get_db),
 ):
-    query = db.query(Restaurant)
+    query = {}
+
+    and_conditions = []
 
     if name:
-        query = query.filter(Restaurant.name.ilike(f"%{name}%"))
+        and_conditions.append({
+            "name": {"$regex": name, "$options": "i"}
+        })
 
     if cuisine:
-        query = query.filter(
-            or_(*[Restaurant.cuisine.ilike(f"%{c}%") for c in cuisine])
-        )
+        cuisine_conditions = []
+        for c in cuisine:
+            cuisine_conditions.append({
+                "cuisine": {"$regex": c, "$options": "i"}
+            })
+        and_conditions.append({"$or": cuisine_conditions})
 
     if keyword:
-        query = query.filter(
-            or_(
-                Restaurant.description.ilike(f"%{keyword}%"),
-                Restaurant.amenities.ilike(f"%{keyword}%"),
-                Restaurant.name.ilike(f"%{keyword}%"),
-            )
-        )
+        and_conditions.append({
+            "$or": [
+                {"description": {"$regex": keyword, "$options": "i"}},
+                {"amenities": {"$regex": keyword, "$options": "i"}},
+                {"name": {"$regex": keyword, "$options": "i"}},
+            ]
+        })
 
     if location:
-        query = query.filter(
-            or_(
-                Restaurant.city.ilike(f"%{location}%"),
-                Restaurant.zip_code.ilike(f"%{location}%"),
-            )
-        )
+        and_conditions.append({
+            "$or": [
+                {"city": {"$regex": location, "$options": "i"}},
+                {"zip_code": {"$regex": location, "$options": "i"}},
+            ]
+        })
 
-    results = query.all()
-    return results
+    if and_conditions:
+        query["$and"] = and_conditions
+
+    results = list(mongo_db.restaurants.find(query))
+
+    restaurants = []
+    for r in results:
+        restaurants.append({
+            "id": str(r["_id"]),
+            "owner_id": r.get("owner_id"),
+            "created_by_user_id": r.get("created_by_user_id"),
+            "name": r.get("name"),
+            "address": r.get("address"),
+            "city": r.get("city"),
+            "state": r.get("state"),
+            "zip_code": r.get("zip_code"),
+            "cuisine": r.get("cuisine"),
+            "price_range": r.get("price_range"),
+            "phone": r.get("phone"),
+            "website": r.get("website"),
+            "hours_of_operation": r.get("hours_of_operation"),
+            "amenities": r.get("amenities"),
+            "description": r.get("description"),
+            "image": r.get("image"),
+            "avg_rating": r.get("avg_rating", 0.0),
+            "created_at": r.get("created_at"),
+        })
+
+    return restaurants
 
 
 @router.get("/owner/profile", response_model=RestaurantPublic)
