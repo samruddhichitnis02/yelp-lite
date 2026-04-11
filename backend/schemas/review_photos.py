@@ -1,12 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 class ReviewPhotoPublic(BaseModel):
-    id: int
-    review_id: int
+    id: str
+    review_id: Optional[str]
     photo_path: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

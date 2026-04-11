@@ -9,22 +9,31 @@ from models.review import Review
 from models.users import User
 from schemas.review_photos import ReviewPhotoPublic
 from services.deps import get_current_user
+from bson import ObjectId
+from datetime import datetime
+from mongodb import db as mongo_db
 
 router = APIRouter(prefix="/reviews", tags=["review-photos"])
 
 
 @router.post("/{review_id}/photos", response_model=ReviewPhotoPublic)
 def upload_review_photo(
-    review_id: int,
+    review_id: str,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    review = db.query(Review).filter(Review.id == review_id).first()
+    try:
+        review_obj_id = ObjectId(review_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid review id")
+
+    review = mongo_db.reviews.find_one({"_id": review_obj_id})
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
-    if review.user_id != current_user.id:
+
+    if review.get("user_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="You can only add photos to your own reviews")
+
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
 
@@ -36,14 +45,21 @@ def upload_review_photo(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    photo = ReviewPhoto(
-        review_id=review_id,
-        photo_path=f"uploads/{filename}",
-    )
-    db.add(photo)
-    db.commit()
-    db.refresh(photo)
-    return photo
+    photo_doc = {
+        "review_id": review_id,
+        "photo_path": f"uploads/{filename}",
+        "created_at": datetime.utcnow(),
+    }
+
+    result = mongo_db.review_photos.insert_one(photo_doc)
+    created_photo = mongo_db.review_photos.find_one({"_id": result.inserted_id})
+
+    return {
+        "id": str(created_photo["_id"]),
+        "review_id": created_photo.get("review_id"),
+        "photo_path": created_photo.get("photo_path"),
+        "created_at": created_photo.get("created_at"),
+    }
 
 
 @router.get("/{review_id}/photos", response_model=List[ReviewPhotoPublic])
