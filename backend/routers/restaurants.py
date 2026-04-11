@@ -682,10 +682,9 @@ def claim_restaurant(
 
 @router.get("/owner/dashboard")
 def get_owner_dashboard(
-    db: Session = Depends(get_db),
-    current_owner: Owner = Depends(get_current_owner),
+    current_owner = Depends(get_current_owner),
 ):
-    restaurants = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).all()
+    restaurants = list(mongo_db.restaurants.find({"owner_id": current_owner["id"]}))
 
     if not restaurants:
         return {
@@ -720,52 +719,52 @@ def get_owner_dashboard(
     restaurant_list = []
 
     for restaurant in restaurants:
-        restaurant_reviews = (
-            db.query(Review)
-            .filter(Review.restaurant_id == restaurant.id)
-            .order_by(Review.created_at.desc())
-            .all()
+        restaurant_id_str = str(restaurant["_id"])
+
+        restaurant_reviews = list(
+            mongo_db.reviews.find({"restaurant_id": restaurant_id_str})
         )
 
         review_count = len(restaurant_reviews)
-        favourites_count = db.query(Favourite).filter(Favourite.restaurant_id == restaurant.id).count()
+        favourites_count = mongo_db.favourites.count_documents({"restaurant_id": restaurant_id_str})
 
         total_review_count += review_count
         total_favourites_count += favourites_count
-        total_views += restaurant.view_count or 0
+        total_views += restaurant.get("view_count", 0) or 0
         all_reviews.extend(restaurant_reviews)
 
         for review in restaurant_reviews:
-            if review.rating in rating_counts:
-                rating_counts[review.rating] += 1
-            if review.comment:
-                all_comments.append(review.comment)
+            rating = review.get("rating")
+            if rating in rating_counts:
+                rating_counts[rating] += 1
+            if review.get("comment"):
+                all_comments.append(review["comment"])
 
         restaurant_list.append({
-            "id": restaurant.id,
-            "owner_id": restaurant.owner_id,
-            "created_by_user_id": restaurant.created_by_user_id,
-            "name": restaurant.name,
-            "address": restaurant.address,
-            "city": restaurant.city,
-            "state": restaurant.state,
-            "zip_code": restaurant.zip_code,
-            "cuisine": restaurant.cuisine,
-            "price_range": restaurant.price_range,
-            "phone": restaurant.phone,
-            "website": restaurant.website,
-            "hours_of_operation": restaurant.hours_of_operation,
-            "amenities": restaurant.amenities,
-            "description": restaurant.description,
-            "image": restaurant.image,
-            "avg_rating": restaurant.avg_rating,
-            "view_count": restaurant.view_count or 0,
+            "id": restaurant_id_str,
+            "owner_id": restaurant.get("owner_id"),
+            "created_by_user_id": restaurant.get("created_by_user_id"),
+            "name": restaurant.get("name"),
+            "address": restaurant.get("address"),
+            "city": restaurant.get("city"),
+            "state": restaurant.get("state"),
+            "zip_code": restaurant.get("zip_code"),
+            "cuisine": restaurant.get("cuisine"),
+            "price_range": restaurant.get("price_range"),
+            "phone": restaurant.get("phone"),
+            "website": restaurant.get("website"),
+            "hours_of_operation": restaurant.get("hours_of_operation"),
+            "amenities": restaurant.get("amenities"),
+            "description": restaurant.get("description"),
+            "image": restaurant.get("image"),
+            "avg_rating": restaurant.get("avg_rating", 0.0),
+            "view_count": restaurant.get("view_count", 0),
             "review_count": review_count,
             "favourites_count": favourites_count,
         })
 
     avg_rating = round(
-        sum((restaurant.avg_rating or 0) for restaurant in restaurants) / len(restaurants),
+        sum((restaurant.get("avg_rating", 0) or 0) for restaurant in restaurants) / len(restaurants),
         1
     ) if restaurants else 0.0
 
@@ -779,6 +778,23 @@ def get_owner_dashboard(
 
     sentiment_summary = analyze_sentiment(all_comments)
 
+    recent_reviews = sorted(
+        all_reviews,
+        key=lambda x: x.get("created_at") or 0,
+        reverse=True
+    )[:5]
+
+    formatted_recent_reviews = []
+    for review in recent_reviews:
+        formatted_recent_reviews.append({
+            "id": str(review["_id"]),
+            "user_id": review.get("user_id"),
+            "restaurant_id": review.get("restaurant_id"),
+            "rating": review.get("rating"),
+            "comment": review.get("comment"),
+            "created_at": review.get("created_at"),
+        })
+
     return {
         "restaurants": restaurant_list,
         "review_count": total_review_count,
@@ -787,11 +803,9 @@ def get_owner_dashboard(
         "total_views": total_views,
         "rating_distribution": rating_distribution,
         "sentiment_summary": sentiment_summary,
-        "recent_reviews": sorted(all_reviews, key=lambda x: x.created_at, reverse=True)[:5],
+        "recent_reviews": formatted_recent_reviews,
     }
 
-
-from bson import ObjectId
 
 @router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)
 def get_restaurant_details(restaurant_id: str):
