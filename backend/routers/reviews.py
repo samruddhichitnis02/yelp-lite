@@ -165,19 +165,28 @@ def delete_review(
 
 @router.get("/owner", response_model=list[ReviewPublic])
 def get_owner_reviews(
-    db: Session = Depends(get_db),
-    current_owner: Owner = Depends(get_current_owner),
+    current_owner = Depends(get_current_owner),
 ):
-    restaurant = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id).first()
+    restaurant = mongo_db.restaurants.find_one({"owner_id": current_owner["id"]})
 
     if not restaurant:
         raise HTTPException(status_code=404, detail="No restaurant found for this owner")
 
-    reviews = (
-        db.query(Review)
-        .filter(Review.restaurant_id == restaurant.id)
-        .order_by(Review.created_at.desc())
-        .all()
+    restaurant_id = str(restaurant["_id"])
+
+    reviews = list(
+        mongo_db.reviews.find({"restaurant_id": restaurant_id}).sort("created_at", -1)
     )
 
-    return reviews
+    formatted_reviews = []
+    for review in reviews:
+        formatted_reviews.append({
+            "id": str(review["_id"]),
+            "user_id": review.get("user_id"),
+            "restaurant_id": review.get("restaurant_id"),
+            "rating": review.get("rating"),
+            "comment": review.get("comment"),
+            "created_at": review.get("created_at"),
+        })
+
+    return formatted_reviews
