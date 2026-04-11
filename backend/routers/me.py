@@ -182,3 +182,17 @@ def get_my_history(
         "restaurants_added": restaurants_added,
         "reviews_written": reviews_written,
     }
+
+## temporary endpoint to test auth
+from fastapi import APIRouter, Depends
+from services.deps import get_current_user
+
+router = APIRouter(prefix="/me", tags=["me"])
+
+@router.get("/test-me")
+def test_me(current_user = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "name": current_user.get("name")
+    }
