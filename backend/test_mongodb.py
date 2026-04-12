@@ -1,20 +1,13 @@
-# from mongodb import db
-# from services.auth_service import hash_password
+import sys
+import os
 
-# user = {
-#     "name": "Test User",
-#     "email": "test@example.com",
-#     "hashed_password": hash_password("123456"),
-#     "profile_pic": None
-# }
-
-# result = db.users.insert_one(user)
-# print("Inserted user id:", result.inserted_id)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mongodb import db as mongo_db
 
-print("Restaurant Photos:")
-print(list(mongo_db.restaurant_photos.find()))
+restaurants = list(mongo_db.restaurants.find({}, {"name": 1, "city": 1, "image": 1, "amenities": 1}))
 
-print("\nActivity Logs:")
-print(list(mongo_db.activity_logs.find()))
+print("Restaurant count:", len(restaurants))
+
+for r in restaurants[:10]:
+    print(r)

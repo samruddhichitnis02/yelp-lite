@@ -3,8 +3,8 @@ import { Card, Badge, Button } from 'react-bootstrap';
 import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
-const RestaurantCard = ({ restaurant }) => {
-    const CUISINE_IMAGES = {
+// These are defined outside because they are constants — they don't depend on props
+const CUISINE_IMAGES = {
     'Italian': [
         'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80',
         'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=600&q=80',
@@ -83,14 +83,29 @@ const FALLBACK_IMAGES = [
     'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=600&q=80',
 ];
 
-const getCuisineImage = (cuisine, id) => {
-    const images = CUISINE_IMAGES[cuisine] || FALLBACK_IMAGES;
-    return images[id % images.length];
+// Converts a MongoDB string ID into a stable number so we can pick different images per restaurant
+const getIdHash = (id) => {
+    if (typeof id === 'number') return id;
+    if (typeof id === 'string') {
+        return id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    }
+    return 0;
 };
 
-const imageUrl = restaurant.image
-    ? `http://localhost:8000/${restaurant.image}`
-    : getCuisineImage(restaurant.cuisine, restaurant.id);
+const getCuisineImage = (cuisine, id) => {
+    const images = CUISINE_IMAGES[cuisine] || FALLBACK_IMAGES;
+    return images[getIdHash(id) % images.length];
+};
+
+const RestaurantCard = ({ restaurant }) => {
+    // FIX: imageUrl must be computed INSIDE the component so it has access to the restaurant prop.
+    // Previously it was accidentally placed outside the function body, so `restaurant` was
+    // undefined at the time it ran — causing every card to share the same broken/fallback image.
+    const imageUrl = restaurant.image
+        ? (restaurant.image.startsWith('http://') || restaurant.image.startsWith('https://')
+            ? restaurant.image
+            : `http://localhost:8000/${restaurant.image}`)
+        : getCuisineImage(restaurant.cuisine, restaurant.id);
 
     const location = [restaurant.city, restaurant.state]
         .filter(Boolean)

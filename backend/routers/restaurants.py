@@ -1,28 +1,19 @@
 from mongodb import db as mongo_db
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
-from models.review import Review
 from schemas.restaurant import (
     RestaurantCreateRequest,
     RestaurantPublic,
     RestaurantDetailPublic,
     RestaurantUpdateRequest,
 )
-from sqlalchemy.orm import Session
 from typing import Optional, List
-from sqlalchemy import or_
-
-from database import get_db
-from models.restaurants import Restaurant
-from models.users import User
 from services.deps import get_current_user, get_current_owner
 
-from models.owner import Owner
 import os
 import shutil
 import uuid
 import re
-from models.favourite import Favourite
 
 
 router = APIRouter(prefix="/restaurants", tags=["restaurants"])
@@ -55,7 +46,6 @@ POSITIVE_WORDS = {
     "beautiful",
     "attentive",
     "yummy",
-    "awesome",
     "superb",
 }
 
@@ -207,7 +197,6 @@ def analyze_single_comment(comment: str):
                 neg_score += 1
             else:
                 pos_score += 1
-
         elif word in NEGATIVE_WORDS:
             if is_negated:
                 pos_score += 1
@@ -265,10 +254,42 @@ def analyze_sentiment(comments):
     }
 
 
+def normalize_amenities_for_response(amenities):
+    if isinstance(amenities, list):
+        return ", ".join(str(a).strip() for a in amenities if str(a).strip())
+    if amenities is None:
+        return ""
+    return str(amenities)
+
+
+def restaurant_public_dict(doc: dict) -> dict:
+    return {
+        "id": str(doc["_id"]),
+        "owner_id": doc.get("owner_id"),
+        "created_by_user_id": doc.get("created_by_user_id"),
+        "name": doc.get("name"),
+        "address": doc.get("address"),
+        "city": doc.get("city"),
+        "state": doc.get("state"),
+        "zip_code": doc.get("zip_code"),
+        "cuisine": doc.get("cuisine"),
+        "price_range": doc.get("price_range"),
+        "phone": doc.get("phone"),
+        "website": doc.get("website"),
+        "hours_of_operation": doc.get("hours_of_operation"),
+        "amenities": normalize_amenities_for_response(doc.get("amenities")),
+        "description": doc.get("description"),
+        "image": doc.get("image"),
+        "avg_rating": doc.get("avg_rating", 0.0),
+        "view_count": doc.get("view_count", 0),
+        "created_at": doc.get("created_at"),
+    }
+
+
 @router.post("/", response_model=RestaurantPublic)
 def create_restaurant(
     payload: RestaurantCreateRequest,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     restaurant_doc = {
         "owner_id": None,
@@ -291,35 +312,15 @@ def create_restaurant(
     }
 
     result = mongo_db.restaurants.insert_one(restaurant_doc)
-
     created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
 
-    return {
-        "id": str(created_restaurant["_id"]),
-        "owner_id": created_restaurant.get("owner_id"),
-        "created_by_user_id": created_restaurant.get("created_by_user_id"),
-        "name": created_restaurant.get("name"),
-        "address": created_restaurant.get("address"),
-        "city": created_restaurant.get("city"),
-        "state": created_restaurant.get("state"),
-        "zip_code": created_restaurant.get("zip_code"),
-        "cuisine": created_restaurant.get("cuisine"),
-        "price_range": created_restaurant.get("price_range"),
-        "phone": created_restaurant.get("phone"),
-        "website": created_restaurant.get("website"),
-        "hours_of_operation": created_restaurant.get("hours_of_operation"),
-        "amenities": created_restaurant.get("amenities"),
-        "description": created_restaurant.get("description"),
-        "image": created_restaurant.get("image"),
-        "avg_rating": created_restaurant.get("avg_rating"),
-        "view_count": created_restaurant.get("view_count"),
-    }
+    return restaurant_public_dict(created_restaurant)
 
 
 @router.post("/owner/create", response_model=RestaurantPublic)
 def owner_create_restaurant(
     payload: RestaurantCreateRequest,
-    current_owner = Depends(get_current_owner),
+    current_owner=Depends(get_current_owner),
 ):
     restaurant_doc = {
         "owner_id": current_owner["id"],
@@ -344,26 +345,7 @@ def owner_create_restaurant(
     result = mongo_db.restaurants.insert_one(restaurant_doc)
     created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
 
-    return {
-        "id": str(created_restaurant["_id"]),
-        "owner_id": created_restaurant.get("owner_id"),
-        "created_by_user_id": created_restaurant.get("created_by_user_id"),
-        "name": created_restaurant.get("name"),
-        "address": created_restaurant.get("address"),
-        "city": created_restaurant.get("city"),
-        "state": created_restaurant.get("state"),
-        "zip_code": created_restaurant.get("zip_code"),
-        "cuisine": created_restaurant.get("cuisine"),
-        "price_range": created_restaurant.get("price_range"),
-        "phone": created_restaurant.get("phone"),
-        "website": created_restaurant.get("website"),
-        "hours_of_operation": created_restaurant.get("hours_of_operation"),
-        "amenities": created_restaurant.get("amenities"),
-        "description": created_restaurant.get("description"),
-        "image": created_restaurant.get("image"),
-        "avg_rating": created_restaurant.get("avg_rating", 0.0),
-        "created_at": created_restaurant.get("created_at"),
-    }
+    return restaurant_public_dict(created_restaurant)
 
 
 @router.get("/search", response_model=list[RestaurantPublic])
@@ -374,67 +356,43 @@ def search_restaurants(
     location: Optional[str] = None,
 ):
     query = {}
-
     and_conditions = []
 
     if name:
-        and_conditions.append({
-            "name": {"$regex": name, "$options": "i"}
-        })
+        and_conditions.append({"name": {"$regex": name, "$options": "i"}})
 
     if cuisine:
         cuisine_conditions = []
         for c in cuisine:
-            cuisine_conditions.append({
-                "cuisine": {"$regex": c, "$options": "i"}
-            })
+            cuisine_conditions.append({"cuisine": {"$regex": c, "$options": "i"}})
         and_conditions.append({"$or": cuisine_conditions})
 
     if keyword:
-        and_conditions.append({
-            "$or": [
-                {"description": {"$regex": keyword, "$options": "i"}},
-                {"amenities": {"$regex": keyword, "$options": "i"}},
-                {"name": {"$regex": keyword, "$options": "i"}},
-            ]
-        })
+        and_conditions.append(
+            {
+                "$or": [
+                    {"description": {"$regex": keyword, "$options": "i"}},
+                    {"amenities": {"$regex": keyword, "$options": "i"}},
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                ]
+            }
+        )
 
     if location:
-        and_conditions.append({
-            "$or": [
-                {"city": {"$regex": location, "$options": "i"}},
-                {"zip_code": {"$regex": location, "$options": "i"}},
-            ]
-        })
+        and_conditions.append(
+            {
+                "$or": [
+                    {"city": {"$regex": location, "$options": "i"}},
+                    {"zip_code": {"$regex": location, "$options": "i"}},
+                ]
+            }
+        )
 
     if and_conditions:
         query["$and"] = and_conditions
 
     results = list(mongo_db.restaurants.find(query))
-
-    restaurants = []
-    for r in results:
-        restaurants.append({
-            "id": str(r["_id"]),
-            "owner_id": r.get("owner_id"),
-            "created_by_user_id": r.get("created_by_user_id"),
-            "name": r.get("name"),
-            "address": r.get("address"),
-            "city": r.get("city"),
-            "state": r.get("state"),
-            "zip_code": r.get("zip_code"),
-            "cuisine": r.get("cuisine"),
-            "price_range": r.get("price_range"),
-            "phone": r.get("phone"),
-            "website": r.get("website"),
-            "hours_of_operation": r.get("hours_of_operation"),
-            "amenities": r.get("amenities"),
-            "description": r.get("description"),
-            "image": r.get("image"),
-            "avg_rating": r.get("avg_rating", 0.0),
-            "created_at": r.get("created_at"),
-        })
-
+    restaurants = [restaurant_public_dict(r) for r in results]
     return restaurants
 
 
@@ -442,7 +400,7 @@ def search_restaurants(
 def update_owner_restaurant_profile(
     payload: RestaurantUpdateRequest,
     restaurant_id: Optional[str] = None,
-    current_owner = Depends(get_current_owner),
+    current_owner=Depends(get_current_owner),
 ):
     query = {"owner_id": current_owner["id"]}
 
@@ -487,87 +445,17 @@ def update_owner_restaurant_profile(
         update_data["amenities"] = payload.amenities
 
     if update_data:
-        mongo_db.restaurants.update_one(
-            {"_id": restaurant["_id"]},
-            {"$set": update_data},
-        )
+        mongo_db.restaurants.update_one({"_id": restaurant["_id"]}, {"$set": update_data})
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
-
-    return {
-        "id": str(updated_restaurant["_id"]),
-        "owner_id": updated_restaurant.get("owner_id"),
-        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
-        "name": updated_restaurant.get("name"),
-        "address": updated_restaurant.get("address"),
-        "city": updated_restaurant.get("city"),
-        "state": updated_restaurant.get("state"),
-        "zip_code": updated_restaurant.get("zip_code"),
-        "cuisine": updated_restaurant.get("cuisine"),
-        "price_range": updated_restaurant.get("price_range"),
-        "phone": updated_restaurant.get("phone"),
-        "website": updated_restaurant.get("website"),
-        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
-        "amenities": updated_restaurant.get("amenities"),
-        "description": updated_restaurant.get("description"),
-        "image": updated_restaurant.get("image"),
-        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
-        "created_at": updated_restaurant.get("created_at"),
-    }
-
-
-@router.put("/owner/profile", response_model=RestaurantPublic)
-def update_owner_restaurant_profile(
-    payload: RestaurantUpdateRequest,
-    restaurant_id: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_owner: Owner = Depends(get_current_owner),
-):
-    query = db.query(Restaurant).filter(Restaurant.owner_id == current_owner.id)
-    if restaurant_id:
-        query = query.filter(Restaurant.id == restaurant_id)
-    restaurant = query.first()
-
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
-
-    if payload.name is not None:
-        restaurant.name = payload.name
-    if payload.address is not None:
-        restaurant.address = payload.address
-    if payload.city is not None:
-        restaurant.city = payload.city
-    if payload.state is not None:
-        restaurant.state = payload.state
-    if payload.zip_code is not None:
-        restaurant.zip_code = payload.zip_code
-    if payload.cuisine is not None:
-        restaurant.cuisine = payload.cuisine
-    if payload.price_range is not None:
-        restaurant.price_range = payload.price_range
-    if payload.phone is not None:
-        restaurant.phone = payload.phone
-    if payload.website is not None:
-        restaurant.website = payload.website
-    if payload.hours_of_operation is not None:
-        restaurant.hours_of_operation = payload.hours_of_operation
-    if payload.description is not None:
-        restaurant.description = payload.description
-    if payload.image is not None:
-        restaurant.image = payload.image
-    if payload.amenities is not None:
-        restaurant.amenities = payload.amenities
-
-    db.commit()
-    db.refresh(restaurant)
-    return restaurant
+    return restaurant_public_dict(updated_restaurant)
 
 
 @router.post("/owner/profile/photo", response_model=RestaurantPublic)
 def upload_owner_restaurant_photo(
     restaurant_id: Optional[str] = None,
     file: UploadFile = File(...),
-    current_owner = Depends(get_current_owner),
+    current_owner=Depends(get_current_owner),
 ):
     query = {"owner_id": current_owner["id"]}
 
@@ -610,33 +498,13 @@ def upload_owner_restaurant_photo(
     )
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
-
-    return {
-        "id": str(updated_restaurant["_id"]),
-        "owner_id": updated_restaurant.get("owner_id"),
-        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
-        "name": updated_restaurant.get("name"),
-        "address": updated_restaurant.get("address"),
-        "city": updated_restaurant.get("city"),
-        "state": updated_restaurant.get("state"),
-        "zip_code": updated_restaurant.get("zip_code"),
-        "cuisine": updated_restaurant.get("cuisine"),
-        "price_range": updated_restaurant.get("price_range"),
-        "phone": updated_restaurant.get("phone"),
-        "website": updated_restaurant.get("website"),
-        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
-        "amenities": updated_restaurant.get("amenities"),
-        "description": updated_restaurant.get("description"),
-        "image": updated_restaurant.get("image"),
-        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
-        "created_at": updated_restaurant.get("created_at"),
-    }
+    return restaurant_public_dict(updated_restaurant)
 
 
 @router.post("/{restaurant_id}/claim", response_model=RestaurantPublic)
 def claim_restaurant(
     restaurant_id: str,
-    current_owner = Depends(get_current_owner),
+    current_owner=Depends(get_current_owner),
 ):
     try:
         restaurant_obj_id = ObjectId(restaurant_id)
@@ -657,32 +525,12 @@ def claim_restaurant(
     )
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
-
-    return {
-        "id": str(updated_restaurant["_id"]),
-        "owner_id": updated_restaurant.get("owner_id"),
-        "created_by_user_id": updated_restaurant.get("created_by_user_id"),
-        "name": updated_restaurant.get("name"),
-        "address": updated_restaurant.get("address"),
-        "city": updated_restaurant.get("city"),
-        "state": updated_restaurant.get("state"),
-        "zip_code": updated_restaurant.get("zip_code"),
-        "cuisine": updated_restaurant.get("cuisine"),
-        "price_range": updated_restaurant.get("price_range"),
-        "phone": updated_restaurant.get("phone"),
-        "website": updated_restaurant.get("website"),
-        "hours_of_operation": updated_restaurant.get("hours_of_operation"),
-        "amenities": updated_restaurant.get("amenities"),
-        "description": updated_restaurant.get("description"),
-        "image": updated_restaurant.get("image"),
-        "avg_rating": updated_restaurant.get("avg_rating", 0.0),
-        "created_at": updated_restaurant.get("created_at"),
-    }
+    return restaurant_public_dict(updated_restaurant)
 
 
 @router.get("/owner/dashboard")
 def get_owner_dashboard(
-    current_owner = Depends(get_current_owner),
+    current_owner=Depends(get_current_owner),
 ):
     restaurants = list(mongo_db.restaurants.find({"owner_id": current_owner["id"]}))
 
@@ -720,10 +568,7 @@ def get_owner_dashboard(
 
     for restaurant in restaurants:
         restaurant_id_str = str(restaurant["_id"])
-
-        restaurant_reviews = list(
-            mongo_db.reviews.find({"restaurant_id": restaurant_id_str})
-        )
+        restaurant_reviews = list(mongo_db.reviews.find({"restaurant_id": restaurant_id_str}))
 
         review_count = len(restaurant_reviews)
         favourites_count = mongo_db.favourites.count_documents({"restaurant_id": restaurant_id_str})
@@ -740,33 +585,39 @@ def get_owner_dashboard(
             if review.get("comment"):
                 all_comments.append(review["comment"])
 
-        restaurant_list.append({
-            "id": restaurant_id_str,
-            "owner_id": restaurant.get("owner_id"),
-            "created_by_user_id": restaurant.get("created_by_user_id"),
-            "name": restaurant.get("name"),
-            "address": restaurant.get("address"),
-            "city": restaurant.get("city"),
-            "state": restaurant.get("state"),
-            "zip_code": restaurant.get("zip_code"),
-            "cuisine": restaurant.get("cuisine"),
-            "price_range": restaurant.get("price_range"),
-            "phone": restaurant.get("phone"),
-            "website": restaurant.get("website"),
-            "hours_of_operation": restaurant.get("hours_of_operation"),
-            "amenities": restaurant.get("amenities"),
-            "description": restaurant.get("description"),
-            "image": restaurant.get("image"),
-            "avg_rating": restaurant.get("avg_rating", 0.0),
-            "view_count": restaurant.get("view_count", 0),
-            "review_count": review_count,
-            "favourites_count": favourites_count,
-        })
+        restaurant_list.append(
+            {
+                "id": restaurant_id_str,
+                "owner_id": restaurant.get("owner_id"),
+                "created_by_user_id": restaurant.get("created_by_user_id"),
+                "name": restaurant.get("name"),
+                "address": restaurant.get("address"),
+                "city": restaurant.get("city"),
+                "state": restaurant.get("state"),
+                "zip_code": restaurant.get("zip_code"),
+                "cuisine": restaurant.get("cuisine"),
+                "price_range": restaurant.get("price_range"),
+                "phone": restaurant.get("phone"),
+                "website": restaurant.get("website"),
+                "hours_of_operation": restaurant.get("hours_of_operation"),
+                "amenities": normalize_amenities_for_response(restaurant.get("amenities")),
+                "description": restaurant.get("description"),
+                "image": restaurant.get("image"),
+                "avg_rating": restaurant.get("avg_rating", 0.0),
+                "view_count": restaurant.get("view_count", 0),
+                "review_count": review_count,
+                "favourites_count": favourites_count,
+            }
+        )
 
-    avg_rating = round(
-        sum((restaurant.get("avg_rating", 0) or 0) for restaurant in restaurants) / len(restaurants),
-        1
-    ) if restaurants else 0.0
+    avg_rating = (
+        round(
+            sum((restaurant.get("avg_rating", 0) or 0) for restaurant in restaurants) / len(restaurants),
+            1,
+        )
+        if restaurants
+        else 0.0
+    )
 
     rating_distribution = [
         {"stars": 5, "count": rating_counts[5]},
@@ -781,19 +632,21 @@ def get_owner_dashboard(
     recent_reviews = sorted(
         all_reviews,
         key=lambda x: x.get("created_at") or 0,
-        reverse=True
+        reverse=True,
     )[:5]
 
     formatted_recent_reviews = []
     for review in recent_reviews:
-        formatted_recent_reviews.append({
-            "id": str(review["_id"]),
-            "user_id": review.get("user_id"),
-            "restaurant_id": review.get("restaurant_id"),
-            "rating": review.get("rating"),
-            "comment": review.get("comment"),
-            "created_at": review.get("created_at"),
-        })
+        formatted_recent_reviews.append(
+            {
+                "id": str(review["_id"]),
+                "user_id": review.get("user_id"),
+                "restaurant_id": review.get("restaurant_id"),
+                "rating": review.get("rating"),
+                "comment": review.get("comment"),
+                "created_at": review.get("created_at"),
+            }
+        )
 
     return {
         "restaurants": restaurant_list,
@@ -821,24 +674,25 @@ def get_restaurant_details(restaurant_id: str):
 
     mongo_db.restaurants.update_one(
         {"_id": restaurant_obj_id},
-        {"$inc": {"view_count": 1}}
+        {"$inc": {"view_count": 1}},
     )
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
-
     reviews = list(mongo_db.reviews.find({"restaurant_id": restaurant_id}).sort("created_at", -1))
 
     formatted_reviews = []
     for review in reviews:
-        formatted_reviews.append({
-            "id": str(review["_id"]),
-            "user_id": review.get("user_id"),
-            "restaurant_id": review.get("restaurant_id"),
-            "rating": review.get("rating"),
-            "comment": review.get("comment"),
-            "created_at": review.get("created_at"),
-            "updated_at": review.get("updated_at"),
-        })
+        formatted_reviews.append(
+            {
+                "id": str(review["_id"]),
+                "user_id": review.get("user_id"),
+                "restaurant_id": review.get("restaurant_id"),
+                "rating": review.get("rating"),
+                "comment": review.get("comment"),
+                "created_at": review.get("created_at"),
+                "updated_at": review.get("updated_at"),
+            }
+        )
 
     return {
         "id": str(updated_restaurant["_id"]),
@@ -854,7 +708,7 @@ def get_restaurant_details(restaurant_id: str):
         "phone": updated_restaurant.get("phone"),
         "website": updated_restaurant.get("website"),
         "hours_of_operation": updated_restaurant.get("hours_of_operation"),
-        "amenities": updated_restaurant.get("amenities"),
+        "amenities": normalize_amenities_for_response(updated_restaurant.get("amenities")),
         "description": updated_restaurant.get("description"),
         "image": updated_restaurant.get("image"),
         "avg_rating": updated_restaurant.get("avg_rating", 0.0),

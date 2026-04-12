@@ -114,8 +114,15 @@ const RestaurantDetailsPage = () => {
         );
     }
 
-    const imageUrl = restaurant.image
-        ? `http://localhost:8000/${restaurant.image}`
+    const rawImage = (restaurant.image || '').trim();
+    const normalizedImage = rawImage.replace(/^\/+/, '');
+
+    const imageUrl = normalizedImage
+        ? (
+            normalizedImage.startsWith('http://') || normalizedImage.startsWith('https://')
+                ? normalizedImage
+                : `http://localhost:8000/${normalizedImage}`
+        )
         : CUISINE_IMAGES[restaurant.cuisine] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80';
 
     const fullAddress = [restaurant.address, restaurant.city, restaurant.state, restaurant.zip_code]
@@ -137,10 +144,16 @@ const RestaurantDetailsPage = () => {
                 className="position-relative bg-dark mb-4"
                 style={{ height: '350px', width: '100%', overflow: 'hidden' }}
             >
+                {/* FIX: Added onError handler so broken uploaded images fall back to a cuisine image */}
                 <img
                     src={imageUrl}
                     alt={restaurant.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = CUISINE_IMAGES[restaurant.cuisine]
+                            || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80';
+                    }}
                 />
                 <div className="position-absolute bottom-0 w-100" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
                     <Container className="pb-4 pt-5 text-white">
