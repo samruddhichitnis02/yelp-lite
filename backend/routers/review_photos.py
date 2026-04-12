@@ -1,38 +1,40 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.orm import Session
 from typing import List
-import os, shutil, uuid
-
-from database import get_db
-from models.review_photos import ReviewPhoto
-from models.review import Review
-from models.users import User
-from schemas.review_photos import ReviewPhotoPublic
-from services.deps import get_current_user
 from bson import ObjectId
 from datetime import datetime
+import os
+import shutil
+import uuid
+
 from mongodb import db as mongo_db
+from services.auth_service import get_current_user
+
 
 router = APIRouter(prefix="/reviews", tags=["review-photos"])
 
 
-@router.post("/{review_id}/photos", response_model=ReviewPhotoPublic)
+@router.post("/{review_id}/photos")
 def upload_review_photo(
     review_id: str,
     file: UploadFile = File(...),
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
+    # Check if review exists
+    review = None
     try:
-        review_obj_id = ObjectId(review_id)
+        review = mongo_db.reviews.find_one({"_id": ObjectId(review_id)})
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid review id")
+        review = None
 
-    review = mongo_db.reviews.find_one({"_id": review_obj_id})
+    if not review:
+        review = mongo_db.reviews.find_one({"id": review_id})
+
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    if review.get("user_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="You can only add photos to your own reviews")
+    # Check ownership
+    if str(review.get("user_id")) != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to add photo to this review")
 
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
@@ -48,65 +50,60 @@ def upload_review_photo(
     photo_doc = {
         "review_id": review_id,
         "photo_path": f"uploads/{filename}",
+        "user_id": current_user["id"],
         "created_at": datetime.utcnow(),
     }
 
     result = mongo_db.review_photos.insert_one(photo_doc)
-    created_photo = mongo_db.review_photos.find_one({"_id": result.inserted_id})
 
     return {
-        "id": str(created_photo["_id"]),
-        "review_id": created_photo.get("review_id"),
-        "photo_path": created_photo.get("photo_path"),
-        "created_at": created_photo.get("created_at"),
+        "id": str(result.inserted_id),
+        "review_id": review_id,
+        "photo_path": photo_doc["photo_path"],
+        "created_at": photo_doc["created_at"],
     }
 
 
-@router.get("/{review_id}/photos", response_model=List[ReviewPhotoPublic])
-def get_review_photos(
-    review_id: str,
-):
+@router.get("/{review_id}/photos")
+def get_review_photos(review_id: str):
     photos = list(
         mongo_db.review_photos.find({"review_id": review_id}).sort("created_at", -1)
     )
 
-    formatted_photos = []
-    for photo in photos:
-        formatted_photos.append({
-            "id": str(photo["_id"]),
-            "review_id": photo.get("review_id"),
-            "photo_path": photo.get("photo_path"),
-            "created_at": photo.get("created_at"),
-        })
+    result = []
+    for p in photos:
+        result.append(
+            {
+                "id": str(p["_id"]),
+                "review_id": p.get("review_id"),
+                "photo_path": p.get("photo_path"),
+                "created_at": p.get("created_at"),
+            }
+        )
 
-    return formatted_photos
+    return result
 
 
 @router.delete("/{review_id}/photos/{photo_id}")
 def delete_review_photo(
     review_id: str,
     photo_id: str,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     try:
-        review_obj_id = ObjectId(review_id)
         photo_obj_id = ObjectId(photo_id)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid id")
+        raise HTTPException(status_code=400, detail="Invalid photo id")
 
-    review = mongo_db.reviews.find_one({"_id": review_obj_id})
-    if not review:
-        raise HTTPException(status_code=404, detail="Review not found")
+    photo = mongo_db.review_photos.find_one(
+        {"_id": photo_obj_id, "review_id": review_id}
+    )
 
-    if review.get("user_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="You can only delete your own review photos")
-
-    photo = mongo_db.review_photos.find_one({
-        "_id": photo_obj_id,
-        "review_id": review_id,
-    })
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
+
+    if photo.get("user_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
 
     try:
         photo_path = photo.get("photo_path")
@@ -116,4 +113,5 @@ def delete_review_photo(
         pass
 
     mongo_db.review_photos.delete_one({"_id": photo_obj_id})
+
     return {"message": "Photo deleted"}

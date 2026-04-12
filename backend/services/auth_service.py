@@ -41,3 +41,36 @@ def decode_access_token(token: str) -> Dict[str, Any]:
     except JWTError:
         # Keep generic so we don't leak details
         raise ValueError("Invalid or expired token")
+    
+
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from bson import ObjectId
+from mongodb import db as mongo_db
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/user/login")
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = decode_access_token(token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = payload.get("sub")
+    role = payload.get("role")
+
+    if not user_id or role != "user":
+        raise HTTPException(status_code=401, detail="Invalid user token")
+
+    try:
+        user = mongo_db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid user id")
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    user["id"] = str(user["_id"])
+    return user

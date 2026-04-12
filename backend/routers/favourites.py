@@ -1,89 +1,89 @@
-from bson import ObjectId
-from datetime import datetime
-from mongodb import db as mongo_db
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from typing import List
+from bson import ObjectId
 
-from database import get_db
-from models.favourite import Favourite
-from models.restaurants import Restaurant
-from models.users import User
-from schemas.favourite import FavouriteCreateRequest, FavouritePublic
-from services.deps import get_current_user
+from mongodb import db as mongo_db
+from services.auth_service import get_current_user
+
 
 router = APIRouter(prefix="/favourites", tags=["favourites"])
 
-@router.post("/", response_model=FavouritePublic)
-def create_favourite(
-    payload: FavouriteCreateRequest,
-    current_user = Depends(get_current_user),
-):
-    try:
-        restaurant_obj_id = ObjectId(payload.restaurant_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid restaurant id")
 
-    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
+@router.post("/{restaurant_id}")
+def add_favourite(restaurant_id: str, current_user=Depends(get_current_user)):
+    restaurant = None
+    try:
+        restaurant = mongo_db.restaurants.find_one({"_id": ObjectId(restaurant_id)})
+    except Exception:
+        restaurant = None
+
+    if not restaurant:
+        restaurant = mongo_db.restaurants.find_one({"id": restaurant_id})
+
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    existing_favourite = mongo_db.favourites.find_one({
-        "user_id": current_user["id"],
-        "restaurant_id": payload.restaurant_id
-    })
-
-    if existing_favourite:
-        raise HTTPException(status_code=400, detail="Restaurant already in favourites")
-
-    favourite_doc = {
-        "user_id": current_user["id"],
-        "restaurant_id": payload.restaurant_id,
-        "created_at": datetime.utcnow()
-    }
-
-    result = mongo_db.favourites.insert_one(favourite_doc)
-    created_favourite = mongo_db.favourites.find_one({"_id": result.inserted_id})
-
-    return {
-        "id": str(created_favourite["_id"]),
-        "user_id": created_favourite.get("user_id"),
-        "restaurant_id": created_favourite.get("restaurant_id"),
-        "created_at": created_favourite.get("created_at"),
-    }
-
-@router.get("/", response_model=list[FavouritePublic])
-def list_favourites(
-    current_user = Depends(get_current_user),
-):
-    favourites = list(
-        mongo_db.favourites.find({"user_id": current_user["id"]}).sort("created_at", -1)
+    existing = mongo_db.favourites.find_one(
+        {
+            "user_id": current_user["id"],
+            "restaurant_id": restaurant_id,
+        }
     )
 
-    formatted_favourites = []
-    for favourite in favourites:
-        formatted_favourites.append({
-            "id": str(favourite["_id"]),
-            "user_id": favourite.get("user_id"),
-            "restaurant_id": favourite.get("restaurant_id"),
-            "created_at": favourite.get("created_at"),
-        })
+    if existing:
+        return {"message": "Already in favourites"}
 
-    return formatted_favourites
+    mongo_db.favourites.insert_one(
+        {
+            "user_id": current_user["id"],
+            "restaurant_id": restaurant_id,
+        }
+    )
+
+    return {"message": "Added to favourites"}
+
+
+@router.get("/", response_model=List[dict])
+def get_favourites(current_user=Depends(get_current_user)):
+    favourites = list(mongo_db.favourites.find({"user_id": current_user["id"]}))
+
+    restaurant_ids = [fav["restaurant_id"] for fav in favourites]
+
+    valid_object_ids = [ObjectId(rid) for rid in restaurant_ids if ObjectId.is_valid(rid)]
+    restaurants = []
+
+    if valid_object_ids:
+        restaurants.extend(list(mongo_db.restaurants.find({"_id": {"$in": valid_object_ids}})))
+
+    string_id_restaurants = list(mongo_db.restaurants.find({"id": {"$in": restaurant_ids}}))
+    restaurants.extend(string_id_restaurants)
+
+    seen_ids = set()
+    result = []
+
+    for r in restaurants:
+        rid = str(r["_id"])
+        if rid in seen_ids:
+            continue
+        seen_ids.add(rid)
+
+        r["id"] = rid
+        del r["_id"]
+        result.append(r)
+
+    return result
+
 
 @router.delete("/{restaurant_id}")
-def delete_favourite(
-    restaurant_id: str,
-    current_user = Depends(get_current_user),
-):
-    favourite = mongo_db.favourites.find_one({
-        "user_id": current_user["id"],
-        "restaurant_id": restaurant_id,
-    })
+def remove_favourite(restaurant_id: str, current_user=Depends(get_current_user)):
+    result = mongo_db.favourites.delete_one(
+        {
+            "user_id": current_user["id"],
+            "restaurant_id": restaurant_id,
+        }
+    )
 
-    if not favourite:
+    if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Favourite not found")
-
-    mongo_db.favourites.delete_one({"_id": favourite["_id"]})
 
     return {"message": "Removed from favourites"}
