@@ -9,24 +9,11 @@ from routers.me import router as me_router
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
 
-from models.users import User
-from models.owner import Owner
-from models.restaurants import Restaurant
-from models.review import Review
-# from models.favourite import Favourite
-from models.preference import Preference
-from models.cuisine_type import CuisineType
-from models.user_cuisine import UserCuisine
-from models.dietary_type import DietaryType
-from models.user_dietary import UserDietary
-from models.ambiance_type import AmbianceType
-from models.user_ambiance import UserAmbiance
 from routers.chatbot import router as chatbot_router
 from routers.review_photos import router as review_photos_router
 
-Base.metadata.create_all(bind=engine)
+
 
 # Initialize the FastAPI application
 app = FastAPI(title="Yelp Lite API", version="1.0.0")
