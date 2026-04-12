@@ -17,6 +17,7 @@ from models.user_ambiance import UserAmbiance
 from schemas.preferences import PreferenceUpdateRequest
 from services.deps import get_current_user, get_current_owner
 
+
 from models.restaurants import Restaurant
 from models.review import Review
 from schemas.history import UserHistoryResponse
