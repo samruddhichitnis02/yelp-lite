@@ -396,6 +396,29 @@ def search_restaurants(
     return restaurants
 
 
+# NEW ROUTE: GET /owner/profile — must be defined BEFORE PUT /owner/profile
+# and BEFORE /{restaurant_id} to avoid route conflicts
+@router.get("/owner/profile", response_model=RestaurantPublic)
+def get_owner_restaurant_profile(
+    restaurant_id: Optional[str] = None,
+    current_owner=Depends(get_current_owner),
+):
+    query = {"owner_id": current_owner["id"]}
+
+    if restaurant_id:
+        try:
+            query["_id"] = ObjectId(restaurant_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one(query)
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+
+    return restaurant_public_dict(restaurant)
+
+
 @router.put("/owner/profile", response_model=RestaurantPublic)
 def update_owner_restaurant_profile(
     payload: RestaurantUpdateRequest,

@@ -82,7 +82,7 @@ const RestaurantDetailsPage = () => {
         }
         setFavouriteLoading(true);
         try {
-            await api.post('/favourites/', { restaurant_id: parseInt(id) });
+            await api.post(`/favourites/${id}`);
             setFavouriteSuccess('Added to favourites!');
             setTimeout(() => setFavouriteSuccess(''), 3000);
         } catch (err) {
