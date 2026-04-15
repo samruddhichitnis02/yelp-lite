@@ -3,7 +3,7 @@ from typing import List
 from bson import ObjectId
 
 from mongodb import db as mongo_db
-from services.auth_service import get_current_user
+from services.deps import get_current_user
 
 
 router = APIRouter(prefix="/favourites", tags=["favourites"])

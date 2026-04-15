@@ -1,39 +1,24 @@
 from bson import ObjectId
 from mongodb import db as mongo_db
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from database import get_db
-from models.users import User
-from models.owner import Owner
-from models.review import Review
-from models.preference import Preference
-from models.restaurants import Restaurant
-from models.cuisine_type import CuisineType
-from models.user_cuisine import UserCuisine
-from models.dietary_type import DietaryType
-from models.user_dietary import UserDietary
-from models.ambiance_type import AmbianceType
-from models.user_ambiance import UserAmbiance
 from schemas.preferences import PreferenceUpdateRequest
-from services.deps import get_current_user, get_current_owner
-
-
-from models.restaurants import Restaurant
-from models.review import Review
 from schemas.history import UserHistoryResponse
+from services.deps import get_current_user, get_current_owner
 
 router = APIRouter(prefix="/me", tags=["me"])
 
+
 @router.get("/test-me")
-def test_me(current_user = Depends(get_current_user)):
+def test_me(current_user=Depends(get_current_user)):
     return {
         "id": current_user["id"],
         "email": current_user["email"],
-        "name": current_user.get("name")
+        "name": current_user.get("name"),
     }
 
+
 @router.get("/user")
-def me_user(current_user = Depends(get_current_user)):
+def me_user(current_user=Depends(get_current_user)):
     return {
         "role": "user",
         "id": current_user["id"],
@@ -50,17 +35,19 @@ def me_user(current_user = Depends(get_current_user)):
         "location": current_user.get("location"),
     }
 
+
 @router.get("/owner")
-def me_owner(current_owner: Owner = Depends(get_current_owner)):
+def me_owner(current_owner=Depends(get_current_owner)):
     return {
         "role": "owner",
-        "id": current_owner.id,
-        "name": current_owner.name,
-        "email": current_owner.email,
+        "id": current_owner["id"],
+        "name": current_owner.get("name"),
+        "email": current_owner.get("email"),
     }
 
+
 @router.get("/preferences")
-def get_my_preferences(current_user = Depends(get_current_user)):
+def get_my_preferences(current_user=Depends(get_current_user)):
     prefs = current_user.get("preferences", {})
     return {
         "user_id": current_user["id"],
@@ -73,10 +60,11 @@ def get_my_preferences(current_user = Depends(get_current_user)):
         "ambiance": prefs.get("ambiance", []),
     }
 
+
 @router.put("/preferences")
 def update_my_preferences(
     payload: PreferenceUpdateRequest,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     mongo_db.users.update_one(
         {"_id": ObjectId(current_user["id"])},
@@ -94,13 +82,11 @@ def update_my_preferences(
             }
         },
     )
-
     return {"message": "Preferences updated successfully"}
 
+
 @router.get("/history")
-def get_my_history(
-    current_user = Depends(get_current_user),
-):
+def get_my_history(current_user=Depends(get_current_user)):
     user_id = current_user["id"]
 
     restaurants_added_docs = list(
