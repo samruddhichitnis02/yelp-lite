@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
+
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from bson import ObjectId
+from mongodb import db as mongo_db
+
 load_dotenv()
 
 # Password hashing (bcrypt)
@@ -43,10 +49,6 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         raise ValueError("Invalid or expired token")
     
 
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from bson import ObjectId
-from mongodb import db as mongo_db
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/user/login")

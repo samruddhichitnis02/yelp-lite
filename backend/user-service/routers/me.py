@@ -1,9 +1,8 @@
 from bson import ObjectId
 from mongodb import db as mongo_db
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from schemas.preferences import PreferenceUpdateRequest
-from schemas.history import UserHistoryResponse
-from services.deps import get_current_user, get_current_owner
+from services.deps import get_current_user
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -33,16 +32,6 @@ def me_user(current_user=Depends(get_current_user)):
         "languages": current_user.get("languages", []),
         "gender": current_user.get("gender"),
         "location": current_user.get("location"),
-    }
-
-
-@router.get("/owner")
-def me_owner(current_owner=Depends(get_current_owner)):
-    return {
-        "role": "owner",
-        "id": current_owner["id"],
-        "name": current_owner.get("name"),
-        "email": current_owner.get("email"),
     }
 
 
