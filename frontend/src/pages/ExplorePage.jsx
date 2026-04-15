@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Badge, Spinner } from 'react-bootstrap';
 import { FaSearch, FaTimes } from 'react-icons/fa';
+import axios from 'axios';
 import RestaurantCard from '../components/RestaurantCard';
-import api from '../services/api';
+
+const RESTAURANT_API = 'http://localhost:8002';
 
 const CUISINES = [
     { label: 'Italian', emoji: '🍝' },
@@ -84,10 +86,13 @@ const ExplorePage = () => {
             if (params.selectedCuisines && params.selectedCuisines.length > 0) {
                 params.selectedCuisines.forEach(c => qs.append('cuisine', c));
             }
-            const res = await api.get('/restaurants/search?' + qs.toString());
+
+            const url = `${RESTAURANT_API}/restaurants/search?${qs.toString()}`;
+            const res = await axios.get(url);
             setRestaurants(res.data);
         } catch (err) {
             console.error('Failed to fetch restaurants:', err);
+            setRestaurants([]);
         } finally {
             setLoading(false);
         }
@@ -187,7 +192,6 @@ const ExplorePage = () => {
                 .slide-dot.active { background: #e94560; width: 22px; border-radius: 4px; }
             `}</style>
 
-            {/* Hero Section */}
             <div style={{ position: 'relative', overflow: 'hidden', padding: '56px 0 44px', marginBottom: '40px' }}>
                 <div className="hero-bg-slide" style={{ backgroundImage: `url(${HERO_IMAGES[currentSlide]})`, opacity: isTransitioning ? 0 : 1, zIndex: 0 }} />
                 <div className="hero-bg-slide" style={{ backgroundImage: `url(${HERO_IMAGES[nextSlide]})`, opacity: isTransitioning ? 1 : 0, zIndex: 0 }} />
@@ -255,16 +259,8 @@ const ExplorePage = () => {
                                         />
                                     </Col>
                                 </Row>
-                            </Form>
 
-                            {/* Cuisine pills */}
-                            <div className="mb-3">
-                                <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
-                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
-                                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.68rem', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Cuisine</span>
-                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
-                                </div>
-                                <div className="d-flex flex-wrap justify-content-center gap-2">
+                                <div className="d-flex flex-wrap justify-content-center gap-2 mb-3">
                                     {visibleCuisines.map(c => (
                                         <button
                                             key={c.label}
@@ -289,46 +285,43 @@ const ExplorePage = () => {
                                         {showAllCuisines ? '✕ Show less' : `+${CUISINES.length - 8} more`}
                                     </button>
                                 </div>
-                            </div>
 
-                            {/* Keyword pills */}
-                            <div>
-                                <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
-                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
-                                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.68rem', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Keywords</span>
-                                    <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
+                                <div>
+                                    <div className="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                        <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
+                                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.68rem', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase' }}>Keywords</span>
+                                        <div style={{ height: '1px', width: '24px', background: 'rgba(255,255,255,0.35)' }} />
+                                    </div>
+                                    <div className="d-flex flex-wrap justify-content-center gap-2">
+                                        {KEYWORDS.map(k => (
+                                            <button
+                                                key={k.label}
+                                                type="button"
+                                                className="pill-btn"
+                                                onClick={() => handleKeywordClick(k.label)}
+                                                style={{
+                                                    background: keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.18)',
+                                                    border: `1.5px solid ${keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.55)'}`,
+                                                    boxShadow: keyword === k.label ? '0 0 14px rgba(15,155,88,0.5)' : 'none',
+                                                }}
+                                            >
+                                                {k.emoji} {k.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="d-flex flex-wrap justify-content-center gap-2">
-                                    {KEYWORDS.map(k => (
-                                        <button
-                                            key={k.label}
-                                            type="button"
-                                            className="pill-btn"
-                                            onClick={() => handleKeywordClick(k.label)}
-                                            style={{
-                                                background: keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.18)',
-                                                border: `1.5px solid ${keyword === k.label ? '#0f9b58' : 'rgba(255,255,255,0.55)'}`,
-                                                boxShadow: keyword === k.label ? '0 0 14px rgba(15,155,88,0.5)' : 'none',
-                                            }}
-                                        >
-                                            {k.emoji} {k.label}
-                                        </button>
+
+                                <div className="slide-dots">
+                                    {HERO_IMAGES.map((_, i) => (
+                                        <button key={i} className={`slide-dot${currentSlide === i ? ' active' : ''}`} onClick={() => setCurrentSlide(i)} aria-label={`Slide ${i + 1}`} />
                                     ))}
                                 </div>
-                            </div>
-
-                            {/* Slide dots */}
-                            <div className="slide-dots">
-                                {HERO_IMAGES.map((_, i) => (
-                                    <button key={i} className={`slide-dot${currentSlide === i ? ' active' : ''}`} onClick={() => setCurrentSlide(i)} aria-label={`Slide ${i + 1}`} />
-                                ))}
-                            </div>
+                            </Form>
                         </Col>
                     </Row>
                 </Container>
             </div>
 
-            {/* Restaurant Results */}
             <Container>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <div>

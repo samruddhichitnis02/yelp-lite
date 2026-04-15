@@ -2,14 +2,16 @@ import React, { useState, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { FaStore, FaMapMarkerAlt, FaInfoCircle, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import axios from 'axios';
+
+const RESTAURANT_API = 'http://localhost:8002';
 
 const US_STATES = [
-    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
-    'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
-    'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-    'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
-    'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
 ];
 
 const CUISINES = [
@@ -65,36 +67,47 @@ const AddRestaurantPage = () => {
         setError('');
         setSuccess('');
         setLoading(true);
-        try {
-            // ✅ Fixed: use owner endpoint so the owner's JWT is accepted
-            const res = await api.post('/restaurants/owner/create', {
-                name: formData.name,
-                cuisine: formData.cuisine,
-                address: formData.address,
-                city: formData.city,
-                state: formData.state,
-                zip_code: formData.zip_code,
-                description: formData.description,
-                phone: formData.phone,
-                website: formData.website,
-                hours_of_operation: formData.hours_of_operation,
-                amenities: formData.amenities,
-                price_range: formData.price_range,
-            });
 
-            // Upload photos if any were selected
-            if (photos.length > 0) {
-                for (const photo of photos) {
-                    const fd = new FormData();
-                    fd.append('file', photo);
-                    await api.post(`/restaurants/${res.data.id}/photos`, fd, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                    });
-                }
+        try {
+            const token = localStorage.getItem('auth_token');
+
+            if (!token) {
+                setError('You must be logged in to create a restaurant.');
+                setLoading(false);
+                return;
             }
 
-            setSuccess('Restaurant listing created successfully!');
-            setTimeout(() => navigate(`/restaurant/${res.data.id}`), 2000);
+            const res = await axios.post(
+                `${RESTAURANT_API}/restaurants/`,
+                {
+                    name: formData.name,
+                    cuisine: formData.cuisine,
+                    address: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    zip_code: formData.zip_code,
+                    description: formData.description,
+                    phone: formData.phone,
+                    website: formData.website,
+                    hours_of_operation: formData.hours_of_operation,
+                    amenities: formData.amenities,
+                    price_range: formData.price_range,
+                    image: '',
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            setSuccess(
+                photos.length > 0
+                    ? 'Restaurant listing created successfully! Photo upload will be wired after restaurant photo routes are finalized.'
+                    : 'Restaurant listing created successfully!'
+            );
+
+            setTimeout(() => navigate(`/restaurant/${res.data.id}`), 1500);
         } catch (err) {
             setError(err?.response?.data?.detail || 'Failed to create restaurant. Please try again.');
         } finally {
@@ -121,8 +134,6 @@ const AddRestaurantPage = () => {
                     <Card className="shadow-sm border-0">
                         <Card.Body className="p-4 p-md-5">
                             <Form onSubmit={handleSubmit}>
-
-                                {/* Basic Info */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2">
                                     <FaInfoCircle className="me-2 text-muted" /> Basic Information
                                 </h5>
@@ -176,7 +187,6 @@ const AddRestaurantPage = () => {
                                     />
                                 </Form.Group>
 
-                                {/* Location & Contact */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2 mt-5">
                                     <FaMapMarkerAlt className="me-2 text-muted" /> Location & Contact
                                 </h5>
@@ -212,6 +222,7 @@ const AddRestaurantPage = () => {
                                             />
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">State</Form.Label>
@@ -227,6 +238,7 @@ const AddRestaurantPage = () => {
                                             </Form.Select>
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Zip Code</Form.Label>
@@ -239,6 +251,7 @@ const AddRestaurantPage = () => {
                                             />
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={4}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Contact Phone</Form.Label>
@@ -251,6 +264,7 @@ const AddRestaurantPage = () => {
                                             />
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={6}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Website</Form.Label>
@@ -263,6 +277,7 @@ const AddRestaurantPage = () => {
                                             />
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={6}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Hours of Operation</Form.Label>
@@ -277,7 +292,6 @@ const AddRestaurantPage = () => {
                                     </Col>
                                 </Row>
 
-                                {/* Additional Details */}
                                 <h5 className="fw-bold mb-4 border-bottom pb-2 mt-5">
                                     <FaImage className="me-2 text-muted" /> Additional Details
                                 </h5>
@@ -298,6 +312,7 @@ const AddRestaurantPage = () => {
                                             </Form.Select>
                                         </Form.Group>
                                     </Col>
+
                                     <Col md={6}>
                                         <Form.Group className="mb-3">
                                             <Form.Label className="fw-bold">Amenities</Form.Label>
@@ -315,7 +330,6 @@ const AddRestaurantPage = () => {
                                     </Col>
                                 </Row>
 
-                                {/* Photos */}
                                 <h5 className="fw-bold mb-3 border-bottom pb-2 mt-5">
                                     <FaImage className="me-2 text-muted" /> Photos
                                     <span className="text-muted fw-normal fs-6 ms-2">(Optional)</span>
@@ -329,6 +343,7 @@ const AddRestaurantPage = () => {
                                     >
                                         <FaImage className="me-2" /> Add Photos
                                     </Button>
+
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -337,6 +352,7 @@ const AddRestaurantPage = () => {
                                         style={{ display: 'none' }}
                                         onChange={handlePhotoSelect}
                                     />
+
                                     <Form.Text className="text-muted ms-3">
                                         You can select multiple photos
                                     </Form.Text>
@@ -345,11 +361,18 @@ const AddRestaurantPage = () => {
                                         <Row xs={3} md={4} className="g-2 mt-2">
                                             {photoPreviews.map((src, idx) => (
                                                 <Col key={idx}>
-                                                    <div className="position-relative rounded overflow-hidden" style={{ height: '100px' }}>
+                                                    <div
+                                                        className="position-relative rounded overflow-hidden"
+                                                        style={{ height: '100px' }}
+                                                    >
                                                         <img
                                                             src={src}
                                                             alt=""
-                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                objectFit: 'cover'
+                                                            }}
                                                         />
                                                         <Button
                                                             variant="danger"
@@ -376,6 +399,7 @@ const AddRestaurantPage = () => {
                                     >
                                         Cancel
                                     </Button>
+
                                     <Button
                                         variant="primary"
                                         type="submit"
@@ -388,7 +412,6 @@ const AddRestaurantPage = () => {
                                         }
                                     </Button>
                                 </div>
-
                             </Form>
                         </Card.Body>
                     </Card>

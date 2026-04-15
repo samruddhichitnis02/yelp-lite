@@ -1,6 +1,6 @@
 from mongodb import db as mongo_db
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from schemas.restaurant import (
     RestaurantCreateRequest,
     RestaurantPublic,
@@ -8,11 +8,8 @@ from schemas.restaurant import (
     RestaurantUpdateRequest,
 )
 from typing import Optional, List
-from services.deps import get_current_user, get_current_owner
+from services.deps import get_current_user
 
-import os
-import shutil
-import uuid
 import re
 
 
@@ -317,37 +314,6 @@ def create_restaurant(
     return restaurant_public_dict(created_restaurant)
 
 
-@router.post("/owner/create", response_model=RestaurantPublic)
-def owner_create_restaurant(
-    payload: RestaurantCreateRequest,
-    current_owner=Depends(get_current_owner),
-):
-    restaurant_doc = {
-        "owner_id": current_owner["id"],
-        "created_by_user_id": None,
-        "name": payload.name,
-        "address": payload.address,
-        "city": payload.city,
-        "state": payload.state,
-        "zip_code": payload.zip_code,
-        "cuisine": payload.cuisine,
-        "price_range": payload.price_range,
-        "phone": payload.phone,
-        "website": payload.website,
-        "hours_of_operation": payload.hours_of_operation,
-        "amenities": payload.amenities,
-        "description": payload.description,
-        "image": payload.image,
-        "avg_rating": 0.0,
-        "view_count": 0,
-    }
-
-    result = mongo_db.restaurants.insert_one(restaurant_doc)
-    created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
-
-    return restaurant_public_dict(created_restaurant)
-
-
 @router.get("/search", response_model=list[RestaurantPublic])
 def search_restaurants(
     name: Optional[str] = None,
@@ -396,47 +362,23 @@ def search_restaurants(
     return restaurants
 
 
-# NEW ROUTE: GET /owner/profile — must be defined BEFORE PUT /owner/profile
-# and BEFORE /{restaurant_id} to avoid route conflicts
-@router.get("/owner/profile", response_model=RestaurantPublic)
-def get_owner_restaurant_profile(
-    restaurant_id: Optional[str] = None,
-    current_owner=Depends(get_current_owner),
-):
-    query = {"owner_id": current_owner["id"]}
-
-    if restaurant_id:
-        try:
-            query["_id"] = ObjectId(restaurant_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid restaurant id")
-
-    restaurant = mongo_db.restaurants.find_one(query)
-
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
-
-    return restaurant_public_dict(restaurant)
-
-
-@router.put("/owner/profile", response_model=RestaurantPublic)
-def update_owner_restaurant_profile(
+@router.put("/{restaurant_id}", response_model=RestaurantPublic)
+def update_restaurant(
+    restaurant_id: str,
     payload: RestaurantUpdateRequest,
-    restaurant_id: Optional[str] = None,
-    current_owner=Depends(get_current_owner),
+    current_user=Depends(get_current_user),
 ):
-    query = {"owner_id": current_owner["id"]}
+    try:
+        restaurant_obj_id = ObjectId(restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
 
-    if restaurant_id:
-        try:
-            query["_id"] = ObjectId(restaurant_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid restaurant id")
-
-    restaurant = mongo_db.restaurants.find_one(query)
+    restaurant = mongo_db.restaurants.find_one(
+        {"_id": restaurant_obj_id, "created_by_user_id": current_user["id"]}
+    )
 
     if not restaurant:
-        raise HTTPException(status_code=404, detail="No restaurant profile found for this owner")
+        raise HTTPException(status_code=404, detail="Restaurant not found")
 
     update_data = {}
 
@@ -468,219 +410,10 @@ def update_owner_restaurant_profile(
         update_data["amenities"] = payload.amenities
 
     if update_data:
-        mongo_db.restaurants.update_one({"_id": restaurant["_id"]}, {"$set": update_data})
-
-    updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
-    return restaurant_public_dict(updated_restaurant)
-
-
-@router.post("/owner/profile/photo", response_model=RestaurantPublic)
-def upload_owner_restaurant_photo(
-    restaurant_id: Optional[str] = None,
-    file: UploadFile = File(...),
-    current_owner=Depends(get_current_owner),
-):
-    query = {"owner_id": current_owner["id"]}
-
-    if restaurant_id:
-        try:
-            query["_id"] = ObjectId(restaurant_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid restaurant id")
-
-    restaurant = mongo_db.restaurants.find_one(query)
-
-    if not restaurant:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Restaurant {restaurant_id} not found or not owned by you. "
-                "Make sure you have claimed or created this restaurant first."
-            )
-            if restaurant_id
-            else "No restaurant profile found for this owner. Please claim or create a restaurant first.",
-        )
-
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image files are allowed")
-
-    os.makedirs("uploads", exist_ok=True)
-
-    extension = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"restaurant_{str(restaurant['_id'])}_{uuid.uuid4().hex}{extension}"
-    file_path = os.path.join("uploads", unique_filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    rel_path = f"uploads/{unique_filename}"
-
-    mongo_db.restaurants.update_one(
-        {"_id": restaurant["_id"]},
-        {"$set": {"image": rel_path}},
-    )
-
-    updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant["_id"]})
-    return restaurant_public_dict(updated_restaurant)
-
-
-@router.post("/{restaurant_id}/claim", response_model=RestaurantPublic)
-def claim_restaurant(
-    restaurant_id: str,
-    current_owner=Depends(get_current_owner),
-):
-    try:
-        restaurant_obj_id = ObjectId(restaurant_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid restaurant id")
-
-    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
-
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="Restaurant not found")
-
-    if restaurant.get("owner_id") is not None:
-        raise HTTPException(status_code=400, detail="Restaurant is already claimed")
-
-    mongo_db.restaurants.update_one(
-        {"_id": restaurant_obj_id},
-        {"$set": {"owner_id": current_owner["id"]}},
-    )
+        mongo_db.restaurants.update_one({"_id": restaurant_obj_id}, {"$set": update_data})
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
     return restaurant_public_dict(updated_restaurant)
-
-
-@router.get("/owner/dashboard")
-def get_owner_dashboard(
-    current_owner=Depends(get_current_owner),
-):
-    restaurants = list(mongo_db.restaurants.find({"owner_id": current_owner["id"]}))
-
-    if not restaurants:
-        return {
-            "restaurants": [],
-            "review_count": 0,
-            "favourites_count": 0,
-            "avg_rating": 0.0,
-            "total_views": 0,
-            "rating_distribution": [
-                {"stars": 5, "count": 0},
-                {"stars": 4, "count": 0},
-                {"stars": 3, "count": 0},
-                {"stars": 2, "count": 0},
-                {"stars": 1, "count": 0},
-            ],
-            "sentiment_summary": {
-                "label": "No Data",
-                "score": 0,
-                "positive": 0,
-                "neutral": 0,
-                "negative": 0,
-            },
-            "recent_reviews": [],
-        }
-
-    total_review_count = 0
-    total_favourites_count = 0
-    total_views = 0
-    all_reviews = []
-    all_comments = []
-    rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    restaurant_list = []
-
-    for restaurant in restaurants:
-        restaurant_id_str = str(restaurant["_id"])
-        restaurant_reviews = list(mongo_db.reviews.find({"restaurant_id": restaurant_id_str}))
-
-        review_count = len(restaurant_reviews)
-        favourites_count = mongo_db.favourites.count_documents({"restaurant_id": restaurant_id_str})
-
-        total_review_count += review_count
-        total_favourites_count += favourites_count
-        total_views += restaurant.get("view_count", 0) or 0
-        all_reviews.extend(restaurant_reviews)
-
-        for review in restaurant_reviews:
-            rating = review.get("rating")
-            if rating in rating_counts:
-                rating_counts[rating] += 1
-            if review.get("comment"):
-                all_comments.append(review["comment"])
-
-        restaurant_list.append(
-            {
-                "id": restaurant_id_str,
-                "owner_id": restaurant.get("owner_id"),
-                "created_by_user_id": restaurant.get("created_by_user_id"),
-                "name": restaurant.get("name"),
-                "address": restaurant.get("address"),
-                "city": restaurant.get("city"),
-                "state": restaurant.get("state"),
-                "zip_code": restaurant.get("zip_code"),
-                "cuisine": restaurant.get("cuisine"),
-                "price_range": restaurant.get("price_range"),
-                "phone": restaurant.get("phone"),
-                "website": restaurant.get("website"),
-                "hours_of_operation": restaurant.get("hours_of_operation"),
-                "amenities": normalize_amenities_for_response(restaurant.get("amenities")),
-                "description": restaurant.get("description"),
-                "image": restaurant.get("image"),
-                "avg_rating": restaurant.get("avg_rating", 0.0),
-                "view_count": restaurant.get("view_count", 0),
-                "review_count": review_count,
-                "favourites_count": favourites_count,
-            }
-        )
-
-    avg_rating = (
-        round(
-            sum((restaurant.get("avg_rating", 0) or 0) for restaurant in restaurants) / len(restaurants),
-            1,
-        )
-        if restaurants
-        else 0.0
-    )
-
-    rating_distribution = [
-        {"stars": 5, "count": rating_counts[5]},
-        {"stars": 4, "count": rating_counts[4]},
-        {"stars": 3, "count": rating_counts[3]},
-        {"stars": 2, "count": rating_counts[2]},
-        {"stars": 1, "count": rating_counts[1]},
-    ]
-
-    sentiment_summary = analyze_sentiment(all_comments)
-
-    recent_reviews = sorted(
-        all_reviews,
-        key=lambda x: x.get("created_at") or 0,
-        reverse=True,
-    )[:5]
-
-    formatted_recent_reviews = []
-    for review in recent_reviews:
-        formatted_recent_reviews.append(
-            {
-                "id": str(review["_id"]),
-                "user_id": review.get("user_id"),
-                "restaurant_id": review.get("restaurant_id"),
-                "rating": review.get("rating"),
-                "comment": review.get("comment"),
-                "created_at": review.get("created_at"),
-            }
-        )
-
-    return {
-        "restaurants": restaurant_list,
-        "review_count": total_review_count,
-        "favourites_count": total_favourites_count,
-        "avg_rating": avg_rating,
-        "total_views": total_views,
-        "rating_distribution": rating_distribution,
-        "sentiment_summary": sentiment_summary,
-        "recent_reviews": formatted_recent_reviews,
-    }
 
 
 @router.get("/{restaurant_id}", response_model=RestaurantDetailPublic)

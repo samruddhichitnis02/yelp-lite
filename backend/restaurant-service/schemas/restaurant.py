@@ -1,7 +1,20 @@
-from schemas.review import ReviewPublic
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+
+
+class ReviewSummary(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    restaurant_id: Optional[str] = None
+    rating: int
+    comment: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 
 class RestaurantCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -18,12 +31,13 @@ class RestaurantCreateRequest(BaseModel):
     amenities: Optional[str] = None
 
     description: Optional[str] = None
-    image: Optional[str] = Field(default=None, max_length=255)  # for now string path; upload endpoint later
+    image: Optional[str] = Field(default=None, max_length=255)
 
 
 class RestaurantPublic(BaseModel):
     id: str
     owner_id: Optional[str] = None
+    created_by_user_id: Optional[str] = None
 
     name: str
     address: Optional[str] = None
@@ -39,16 +53,18 @@ class RestaurantPublic(BaseModel):
     amenities: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
-    avg_rating: float
+    avg_rating: float = 0.0
+    view_count: int = 0
     created_at: Optional[datetime] = None
-    created_by_user_id: Optional[str] = None
 
     class Config:
         from_attributes = True
 
+
 class RestaurantDetailPublic(RestaurantPublic):
     review_count: int
-    reviews: List[ReviewPublic] = []
+    reviews: List[ReviewSummary] = []
+
 
 class RestaurantUpdateRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
