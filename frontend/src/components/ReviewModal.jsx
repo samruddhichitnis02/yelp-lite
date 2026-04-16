@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
-import { FaStar, FaCamera, FaTimes } from 'react-icons/fa';
-import api from '../services/api';
+import { FaStar, FaCamera } from 'react-icons/fa';
+import axios from 'axios';
+
+const REVIEW_API = 'http://localhost:8003';
 
 const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReviewSubmitted }) => {
     const [rating, setRating] = useState(0);
@@ -13,51 +15,79 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
     const [photoPreviews, setPhotoPreviews] = useState([]);
     const photoInputRef = useRef(null);
 
+    const resetForm = () => {
+        setRating(0);
+        setHover(null);
+        setComment('');
+        setPhotos([]);
+        setPhotoPreviews([]);
+        setError('');
+    };
+
     const handlePhotoSelect = (e) => {
-        const files = Array.from(e.target.files);
-        setPhotos(prev => [...prev, ...files]);
-        const previews = files.map(f => URL.createObjectURL(f));
-        setPhotoPreviews(prev => [...prev, ...previews]);
+        const files = Array.from(e.target.files || []);
+        setPhotos((prev) => [...prev, ...files]);
+        const previews = files.map((f) => URL.createObjectURL(f));
+        setPhotoPreviews((prev) => [...prev, ...previews]);
         e.target.value = '';
     };
 
     const removePhoto = (index) => {
-        setPhotos(prev => prev.filter((_, i) => i !== index));
-        setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (rating === 0) {
             setError('Please select a star rating.');
             return;
         }
+
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            setError('Please log in first.');
+            return;
+        }
+
         setError('');
         setLoading(true);
-        try {
-            // Create the review first
-            const res = await api.post('/reviews/', {
-                restaurant_id: restaurantId,
-                rating,
-                comment,
-            });
 
-            // Upload photos if any
+        try {
+            const reviewRes = await axios.post(
+                `${REVIEW_API}/reviews/`,
+                {
+                    restaurant_id: restaurantId,
+                    rating,
+                    comment,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
             if (photos.length > 0) {
                 for (const photo of photos) {
                     const fd = new FormData();
                     fd.append('file', photo);
-                    await api.post(`/reviews/${res.data.id}/photos`, fd, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                    });
+
+                    await axios.post(
+                        `${REVIEW_API}/reviews/${reviewRes.data.id}/photos`,
+                        fd,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'multipart/form-data',
+                            },
+                        }
+                    );
                 }
             }
 
-            // Reset form
-            setRating(0);
-            setComment('');
-            setPhotos([]);
-            setPhotoPreviews([]);
+            resetForm();
             handleClose();
             if (onReviewSubmitted) onReviewSubmitted();
         } catch (err) {
@@ -68,11 +98,7 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
     };
 
     const handleModalClose = () => {
-        setRating(0);
-        setComment('');
-        setPhotos([]);
-        setPhotoPreviews([]);
-        setError('');
+        resetForm();
         handleClose();
     };
 
@@ -81,22 +107,22 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
             <Modal.Header closeButton className="border-0 pb-0">
                 <Modal.Title className="fw-bold">Review {restaurantName}</Modal.Title>
             </Modal.Header>
+
             <Modal.Body>
                 {error && <Alert variant="danger">{error}</Alert>}
-                <Form onSubmit={handleSubmit}>
 
-                    {/* Star Rating */}
+                <Form onSubmit={handleSubmit}>
                     <div className="text-center mb-4">
                         <h5 className="text-muted mb-3">How was your experience?</h5>
                         <div className="d-flex justify-content-center gap-2">
-                            {[...Array(5)].map((star, index) => {
+                            {[...Array(5)].map((_, index) => {
                                 const currentRating = index + 1;
                                 return (
                                     <FaStar
                                         key={index}
                                         size={40}
                                         style={{ cursor: 'pointer', transition: 'color 0.2s' }}
-                                        color={currentRating <= (hover || rating) ? "#ffc107" : "#e4e5e9"}
+                                        color={currentRating <= (hover || rating) ? '#ffc107' : '#e4e5e9'}
                                         onClick={() => setRating(currentRating)}
                                         onMouseEnter={() => setHover(currentRating)}
                                         onMouseLeave={() => setHover(null)}
@@ -104,6 +130,7 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                                 );
                             })}
                         </div>
+
                         {rating > 0 && (
                             <p className="mt-2 text-primary fw-bold">
                                 {['Terrible', 'Poor', 'Average', 'Good', 'Excellent'][rating - 1]}
@@ -111,7 +138,6 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                         )}
                     </div>
 
-                    {/* Comment */}
                     <Form.Group className="mb-3">
                         <Form.Label className="fw-bold">Additional Comments</Form.Label>
                         <Form.Control
@@ -123,7 +149,6 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                         />
                     </Form.Group>
 
-                    {/* Photo Upload */}
                     <Form.Group className="mb-4">
                         <Form.Label className="fw-bold d-flex align-items-center justify-content-between">
                             <span>Add Photos <span className="text-muted fw-normal">(optional)</span></span>
@@ -131,11 +156,12 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                                 variant="outline-secondary"
                                 size="sm"
                                 type="button"
-                                onClick={() => photoInputRef.current.click()}
+                                onClick={() => photoInputRef.current?.click()}
                             >
                                 <FaCamera className="me-1" /> Add Photos
                             </Button>
                         </Form.Label>
+
                         <input
                             type="file"
                             accept="image/*"
@@ -149,7 +175,10 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                             <Row xs={3} className="g-2 mt-1">
                                 {photoPreviews.map((src, idx) => (
                                     <Col key={idx}>
-                                        <div className="position-relative rounded overflow-hidden" style={{ height: '80px' }}>
+                                        <div
+                                            className="position-relative rounded overflow-hidden"
+                                            style={{ height: '80px' }}
+                                        >
                                             <img
                                                 src={src}
                                                 alt=""
@@ -178,10 +207,14 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
                         className="w-100 rounded-pill fw-bold py-2 mb-2"
                         disabled={loading}
                     >
-                        {loading
-                            ? <><Spinner size="sm" animation="border" className="me-2" />Submitting...</>
-                            : 'Post Review'
-                        }
+                        {loading ? (
+                            <>
+                                <Spinner size="sm" animation="border" className="me-2" />
+                                Submitting...
+                            </>
+                        ) : (
+                            'Post Review'
+                        )}
                     </Button>
                 </Form>
             </Modal.Body>
