@@ -1,16 +1,13 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from models.owner import Owner
 
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from mongodb import db as mongo_db
 
-from database import get_db
-from models.review import Review
-from models.restaurants import Restaurant
-from models.users import User
+# from database import get_db
 from schemas.review import ReviewCreateRequest, ReviewUpdateRequest, ReviewPublic
 from services.deps import get_current_user, get_current_owner
 
@@ -35,8 +32,8 @@ def create_review(
         "restaurant_id": payload.restaurant_id,
         "rating": payload.rating,
         "comment": payload.comment,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
 
     result = mongo_db.reviews.insert_one(review_doc)

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from typing import List
 from bson import ObjectId
 from datetime import datetime
 import os
@@ -7,7 +6,7 @@ import shutil
 import uuid
 
 from mongodb import db as mongo_db
-from services.auth_service import get_current_user
+from services.deps import get_current_user
 
 
 router = APIRouter(prefix="/reviews", tags=["review-photos"])
@@ -19,7 +18,6 @@ def upload_review_photo(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),
 ):
-    # Check if review exists
     review = None
     try:
         review = mongo_db.reviews.find_one({"_id": ObjectId(review_id)})
@@ -32,7 +30,6 @@ def upload_review_photo(
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    # Check ownership
     if str(review.get("user_id")) != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to add photo to this review")
 

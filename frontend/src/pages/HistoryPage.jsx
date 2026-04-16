@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Badge, Spinner, Alert, Tab, Nav } from 'react-bootstrap';
-import { FaHistory, FaStar, FaUtensils, FaMapMarkerAlt, FaCalendarAlt } from 'react-icons/fa';
+import { FaHistory, FaStar, FaUtensils, FaMapMarkerAlt, FaCalendarAlt, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const USER_API = 'http://localhost:8001';
 const RESTAURANT_API = 'http://localhost:8002';
+const REVIEW_API = 'http://localhost:8003';
 
 const CUISINE_IMAGES = {
     Italian: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
@@ -44,24 +45,46 @@ const getCuisineImage = (restaurant) => {
         }
         return `${RESTAURANT_API}/${restaurant.image}`;
     }
-    return CUISINE_IMAGES[restaurant?.cuisine] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800';
+
+    return (
+        CUISINE_IMAGES[restaurant?.cuisine] ||
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'
+    );
 };
 
-const formatRestaurantDate = (restaurant) => {
-    const rawDate =
-        restaurant.created_at ||
-        restaurant.createdAt ||
-        restaurant.date_added ||
-        restaurant.dateAdded;
+const formatLocalDate = (value) => {
+    if (!value) return 'Unknown date';
 
-    if (!rawDate) return 'N/A';
+    const raw = String(value);
+    const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+    const [year, month, day] = datePart.split('-').map(Number);
 
-    const parsed = new Date(rawDate);
-    return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
+    if (!year || !month || !day) {
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return 'Unknown date';
+
+        return parsed.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    }
+
+    const localDate = new Date(year, month - 1, day);
+
+    return localDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
 };
 
 const HistoryPage = () => {
-    const [history, setHistory] = useState({ restaurants_added: [], reviews_written: [] });
+    const [history, setHistory] = useState({
+        restaurants_added: [],
+        reviews_written: [],
+    });
+    const [restaurantNames, setRestaurantNames] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -77,8 +100,33 @@ const HistoryPage = () => {
                     },
                 });
 
-                setHistory(res.data);
+                const historyData = res.data;
+                setHistory(historyData);
+
+                const restaurantIdsFromReviews = [
+                    ...new Set(
+                        (historyData.reviews_written || [])
+                            .map((review) => review.restaurant_id)
+                            .filter(Boolean)
+                    ),
+                ];
+
+                const restaurantEntries = await Promise.all(
+                    restaurantIdsFromReviews.map(async (restaurantId) => {
+                        try {
+                            const response = await axios.get(
+                                `${RESTAURANT_API}/restaurants/${restaurantId}`
+                            );
+                            return [restaurantId, response.data.name];
+                        } catch {
+                            return [restaurantId, 'Restaurant'];
+                        }
+                    })
+                );
+
+                setRestaurantNames(Object.fromEntries(restaurantEntries));
             } catch (err) {
+                console.error('Failed to load history:', err);
                 setError('Failed to load history. Please try again.');
             } finally {
                 setLoading(false);
@@ -87,6 +135,31 @@ const HistoryPage = () => {
 
         fetchHistory();
     }, []);
+
+    const handleDeleteReview = async (reviewId, e) => {
+        e.stopPropagation();
+
+        const confirmDelete = window.confirm('Are you sure you want to delete this review?');
+        if (!confirmDelete) return;
+
+        try {
+            const token = localStorage.getItem('auth_token');
+
+            await axios.delete(`${REVIEW_API}/reviews/${reviewId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setHistory((prev) => ({
+                ...prev,
+                reviews_written: prev.reviews_written.filter((review) => review.id !== reviewId),
+            }));
+        } catch (err) {
+            console.error('Failed to delete review:', err);
+            alert('Failed to delete review. Please try again.');
+        }
+    };
 
     if (loading) {
         return (
@@ -104,7 +177,7 @@ const HistoryPage = () => {
                         <FaHistory className="text-primary" /> My History
                     </h2>
                     <p className="text-muted">
-                        A record of all the restaurants you've added and reviews you've written.
+                        A record of all the restaurants you&apos;ve added and reviews you&apos;ve written.
                     </p>
                 </Col>
             </Row>
@@ -180,7 +253,9 @@ const HistoryPage = () => {
                                                 <div className="d-flex align-items-center mb-2">
                                                     <StarRating rating={Math.round(restaurant.avg_rating || 0)} />
                                                     <span className="ms-2 small text-muted">
-                                                        {restaurant.avg_rating ? Number(restaurant.avg_rating).toFixed(1) : '0.0'}
+                                                        {restaurant.avg_rating
+                                                            ? Number(restaurant.avg_rating).toFixed(1)
+                                                            : '0.0'}
                                                     </span>
                                                 </div>
 
@@ -191,7 +266,7 @@ const HistoryPage = () => {
 
                                             <Card.Footer className="bg-transparent border-0 text-muted small">
                                                 <FaCalendarAlt className="me-1" />
-                                                Added {formatRestaurantDate(restaurant)}
+                                                Added {formatLocalDate(restaurant.created_at)}
                                             </Card.Footer>
                                         </Card>
                                     </Col>
@@ -225,24 +300,34 @@ const HistoryPage = () => {
                                                     </div>
 
                                                     <p className="mb-1 text-secondary">
-                                                        {review.comment || <em className="text-muted">No comment left.</em>}
+                                                        {review.comment || (
+                                                            <em className="text-muted">No comment left.</em>
+                                                        )}
                                                     </p>
                                                 </div>
 
-                                                <Badge bg="light" text="dark" className="border text-muted ms-3 flex-shrink-0">
-                                                    Restaurant #{review.restaurant_id}
-                                                </Badge>
+                                                <div className="d-flex align-items-start gap-2 ms-3">
+                                                    <Badge
+                                                        bg="light"
+                                                        text="dark"
+                                                        className="border text-muted flex-shrink-0"
+                                                    >
+                                                        {restaurantNames[review.restaurant_id] || 'Restaurant'}
+                                                    </Badge>
+
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-danger"
+                                                        onClick={(e) => handleDeleteReview(review.id, e)}
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <div className="text-muted small mt-2">
                                                 <FaCalendarAlt className="me-1" />
-                                                {review.created_at
-                                                    ? new Date(review.created_at).toLocaleDateString('en-US', {
-                                                          year: 'numeric',
-                                                          month: 'long',
-                                                          day: 'numeric',
-                                                      })
-                                                    : 'Unknown date'}
+                                                {formatLocalDate(review.created_at)}
                                             </div>
                                         </Card.Body>
                                     </Card>
