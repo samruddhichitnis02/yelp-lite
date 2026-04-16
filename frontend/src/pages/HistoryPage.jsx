@@ -47,6 +47,19 @@ const getCuisineImage = (restaurant) => {
     return CUISINE_IMAGES[restaurant?.cuisine] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800';
 };
 
+const formatRestaurantDate = (restaurant) => {
+    const rawDate =
+        restaurant.created_at ||
+        restaurant.createdAt ||
+        restaurant.date_added ||
+        restaurant.dateAdded;
+
+    if (!rawDate) return 'N/A';
+
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? 'N/A' : parsed.toLocaleDateString();
+};
+
 const HistoryPage = () => {
     const [history, setHistory] = useState({ restaurants_added: [], reviews_written: [] });
     const [loading, setLoading] = useState(true);
@@ -178,10 +191,7 @@ const HistoryPage = () => {
 
                                             <Card.Footer className="bg-transparent border-0 text-muted small">
                                                 <FaCalendarAlt className="me-1" />
-                                                Added{' '}
-                                                {restaurant.created_at
-                                                    ? new Date(restaurant.created_at).toLocaleDateString()
-                                                    : 'N/A'}
+                                                Added {formatRestaurantDate(restaurant)}
                                             </Card.Footer>
                                         </Card>
                                     </Col>

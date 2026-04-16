@@ -3,14 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from routers.restaurants import router as restaurants_router
+from routers.chatbot import router as chatbot_router
 
 # Include only if this file exists and is clean
 # from routers.restaurant_photos import router as restaurant_photos_router
 
 app = FastAPI(title="Restaurant Service", version="1.0.0")
 
-# Only restaurant-related routes
+# Restaurant routes
 app.include_router(restaurants_router)
+
+# Chatbot routes
+app.include_router(chatbot_router)
 
 # Uncomment later if needed
 # app.include_router(restaurant_photos_router)

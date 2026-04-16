@@ -9,6 +9,7 @@ from schemas.restaurant import (
 )
 from typing import Optional, List
 from services.deps import get_current_user
+from datetime import datetime, timezone
 
 import re
 
@@ -306,6 +307,7 @@ def create_restaurant(
         "image": payload.image,
         "avg_rating": 0.0,
         "view_count": 0,
+        "created_at": datetime.now(timezone.utc),
     }
 
     result = mongo_db.restaurants.insert_one(restaurant_doc)
