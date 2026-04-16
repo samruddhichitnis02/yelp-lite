@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, Form, Button, InputGroup, Badge, Spinner } from 'react-bootstrap';
 import { FaRobot, FaPaperPlane, FaTimes, FaUser, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-import api from '../services/api';
+import axios from 'axios';
+
+const RESTAURANT_API = 'http://localhost:8002';
 
 // Lightweight markdown renderer — handles bold, numbered lists, bullet lists
 const renderMarkdown = (text) => {
@@ -15,13 +17,11 @@ const renderMarkdown = (text) => {
     while (i < lines.length) {
         const line = lines[i];
 
-        // Skip empty lines
         if (line.trim() === '') {
             i++;
             continue;
         }
 
-        // Numbered list: lines starting with "1.", "2.", etc.
         if (/^\d+\.\s/.test(line.trim())) {
             const listItems = [];
             while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
@@ -38,7 +38,6 @@ const renderMarkdown = (text) => {
             continue;
         }
 
-        // Bullet list: lines starting with "- " or "* "
         if (/^[-*]\s/.test(line.trim())) {
             const listItems = [];
             while (i < lines.length && /^[-*]\s/.test(lines[i].trim())) {
@@ -55,7 +54,6 @@ const renderMarkdown = (text) => {
             continue;
         }
 
-        // Normal paragraph
         elements.push(
             <p key={i} style={{ marginBottom: '0.4rem' }}>{inlineFormat(line)}</p>
         );
@@ -65,10 +63,8 @@ const renderMarkdown = (text) => {
     return elements;
 };
 
-// Handle inline **bold** and *italic* formatting
 const inlineFormat = (text) => {
     const parts = [];
-    // Split on **bold** and *italic*
     const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
     let last = 0;
     let match;
@@ -147,11 +143,19 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
         setIsTyping(true);
 
         try {
-            const history = buildHistory(messages);
-            const res = await api.post('/ai-assistant/chat', {
-                message: userText,
-                conversation_history: history,
-            });
+            const token = localStorage.getItem('auth_token');
+            const history = buildHistory(updatedMessages);
+
+            const res = await axios.post(
+                `${RESTAURANT_API}/ai-assistant/chat`,
+                {
+                    message: userText,
+                    conversation_history: history,
+                },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
 
             const { reply, recommendations } = res.data;
 
@@ -164,11 +168,15 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                 }
             ]);
         } catch (err) {
+            console.error('AI Assistant error:', err?.response?.status, err?.response?.data || err.message);
+
             setMessages(prev => [
                 ...prev,
                 {
                     role: 'ai',
-                    text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
+                    text:
+                        err?.response?.data?.detail ||
+                        "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
                     restaurants: [],
                 }
             ]);
@@ -180,21 +188,36 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <Card className="position-fixed shadow-lg border-0" style={{ bottom: '20px', right: '20px', width: '400px', height: '580px', zIndex: 1050, display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
-
-            {/* Header */}
+        <Card
+            className="position-fixed shadow-lg border-0"
+            style={{
+                bottom: '20px',
+                right: '20px',
+                width: '400px',
+                height: '580px',
+                zIndex: 1050,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '16px',
+                overflow: 'hidden'
+            }}
+        >
             <div className="bg-primary text-white p-3 d-flex justify-content-between align-items-center">
                 <div className="d-flex align-items-center">
                     <FaRobot size={24} className="me-2" />
                     <h5 className="mb-0 fw-bold m-0">AI Assistant</h5>
                 </div>
-                <Button variant="link" className="text-white p-0" onClick={onClose}><FaTimes size={20} /></Button>
+                <Button variant="link" className="text-white p-0" onClick={onClose}>
+                    <FaTimes size={20} />
+                </Button>
             </div>
 
-            {/* Chat History */}
             <Card.Body className="bg-light overflow-auto p-3" style={{ flexGrow: 1 }}>
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`d-flex flex-column mb-3 ${msg.role === 'user' ? 'align-items-end' : 'align-items-start'}`}>
+                    <div
+                        key={idx}
+                        className={`d-flex flex-column mb-3 ${msg.role === 'user' ? 'align-items-end' : 'align-items-start'}`}
+                    >
                         <div
                             className={`p-3 rounded-3 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-dark'}`}
                             style={{
@@ -212,23 +235,24 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                                 }
                             </div>
 
-                            {/* Render plain text for user, markdown for AI */}
                             {msg.role === 'user'
                                 ? <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
                                 : <div style={{ marginBottom: 0 }}>{renderMarkdown(msg.text)}</div>
                             }
                         </div>
 
-                        {/* Restaurant recommendation cards */}
                         {msg.restaurants && msg.restaurants.length > 0 && (
                             <div className="mt-2 w-100" style={{ paddingLeft: '8px' }}>
                                 {msg.restaurants.map(r => (
                                     <Card key={r.id} className="mb-2 shadow-sm border-0" style={{ borderLeft: '3px solid #0d6efd', borderRadius: '10px' }}>
                                         <Card.Body className="p-2 px-3">
                                             <div className="d-flex justify-content-between align-items-center">
-                                                <Link to={`/restaurant/${r.id}`} className="text-decoration-none fw-bold" style={{ fontSize: '0.88rem' }}>{r.name}</Link>
+                                                <Link to={`/restaurant/${r.id}`} className="text-decoration-none fw-bold" style={{ fontSize: '0.88rem' }}>
+                                                    {r.name}
+                                                </Link>
                                                 <Badge bg="danger" style={{ fontSize: '0.72rem' }}>
-                                                    <FaStar className="me-1" />{r.avg_rating?.toFixed(1)}
+                                                    <FaStar className="me-1" />
+                                                    {typeof r.avg_rating === 'number' ? r.avg_rating.toFixed(1) : '0.0'}
                                                 </Badge>
                                             </div>
                                             <small className="text-muted d-block my-1" style={{ fontSize: '0.75rem' }}>
@@ -256,10 +280,10 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                         </div>
                     </div>
                 )}
+
                 <div ref={messagesEndRef} />
             </Card.Body>
 
-            {/* Input */}
             <div className="p-3 bg-white border-top">
                 <Form onSubmit={handleSend}>
                     <InputGroup>
@@ -276,9 +300,15 @@ const AIAssistantChat = ({ isOpen, onClose }) => {
                     </InputGroup>
                 </Form>
                 <div className="d-flex flex-wrap gap-1 mt-2">
-                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Find me dinner tonight')}>Find dinner tonight</Badge>
-                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Vegan options near me')}>Vegan options</Badge>
-                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Best rated restaurants')}>Best rated</Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Find me dinner tonight')}>
+                        Find dinner tonight
+                    </Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Vegan options near me')}>
+                        Vegan options
+                    </Badge>
+                    <Badge bg="light" text="dark" className="border user-select-none" style={{ cursor: 'pointer' }} onClick={() => setInput('Best rated restaurants')}>
+                        Best rated
+                    </Badge>
                 </div>
             </div>
         </Card>

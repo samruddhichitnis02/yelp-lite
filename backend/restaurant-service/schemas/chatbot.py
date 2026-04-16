@@ -13,7 +13,7 @@ class ChatbotRequest(BaseModel):
 
 
 class ChatbotRestaurant(BaseModel):
-    id: int
+    id: str
     name: str
     city: Optional[str] = None
     cuisine: Optional[str] = None
@@ -25,4 +25,4 @@ class ChatbotRestaurant(BaseModel):
 
 class ChatbotResponse(BaseModel):
     reply: str
-    recommendations: List[ChatbotRestaurant]
+    recommendations: List[ChatbotRestaurant] = []
