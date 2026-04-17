@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
-# ---------- Requests ----------
 
 class OwnerSignupRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -9,23 +8,17 @@ class OwnerSignupRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     location: str = Field(..., min_length=1, max_length=150)
 
+
 class OwnerLoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=128)
 
-# ---------- Responses ----------
 
 class OwnerPublic(BaseModel):
-    id: int
+    id: str
     name: str
     email: EmailStr
-    business_name: Optional[str] = None
+    location: Optional[str] = None
 
     class Config:
         from_attributes = True
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    role: str = "owner"
-    owner: OwnerPublic
