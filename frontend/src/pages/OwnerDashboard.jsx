@@ -11,11 +11,13 @@ import {
     FaEye,
     FaChartBar,
     FaSyncAlt,
+    FaTrash,
 } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const OWNER_API = 'http://localhost:8004';
+const RESTAURANT_API = 'http://localhost:8002';
 
 const OwnerDashboard = () => {
     const navigate = useNavigate();
@@ -103,6 +105,21 @@ const OwnerDashboard = () => {
             setRefreshing(false);
         }
     }, []);
+
+    const handleDelete = async (restaurantId, restaurantName) => {
+        if (!window.confirm(`Are you sure you want to delete "${restaurantName}"? This will also remove all its reviews and favourites.`)) {
+            return;
+        }
+        try {
+            const token = localStorage.getItem('auth_token');
+            await axios.delete(`${RESTAURANT_API}/restaurants/${restaurantId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            fetchDashboard(true);
+        } catch (err) {
+            alert(err.response?.data?.detail || 'Failed to delete restaurant');
+        }
+    };
 
     useEffect(() => {
         fetchDashboard();
@@ -470,6 +487,18 @@ const OwnerDashboard = () => {
                                                     onClick={() => navigate(`/restaurant/${r.id}`)}
                                                 >
                                                     <FaEye className="me-1" /> View
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="action-btn"
+                                                    style={{
+                                                        background: 'rgba(239,68,68,0.08)',
+                                                        border: 'none',
+                                                        color: '#ef4444',
+                                                    }}
+                                                    onClick={() => handleDelete(r.id, r.name)}
+                                                >
+                                                    <FaTrash className="me-1" /> Delete
                                                 </Button>
                                             </div>
                                         </div>

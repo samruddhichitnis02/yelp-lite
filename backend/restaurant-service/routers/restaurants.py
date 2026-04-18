@@ -474,6 +474,7 @@ def get_restaurant_details(restaurant_id: str):
         "reviews": formatted_reviews,
     }
 
+
 @router.post("/{restaurant_id}/claim")
 def claim_restaurant(
     restaurant_id: str,
@@ -500,3 +501,30 @@ def claim_restaurant(
     )
 
     return {"message": "Restaurant claimed successfully"}
+
+
+@router.delete("/{restaurant_id}")
+def delete_restaurant(
+    restaurant_id: str,
+    current_owner=Depends(get_current_owner),
+):
+    try:
+        restaurant_obj_id = ObjectId(restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    if restaurant.get("owner_id") != current_owner["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this restaurant")
+
+    # Cascade delete related data
+    mongo_db.reviews.delete_many({"restaurant_id": restaurant_id})
+    mongo_db.favourites.delete_many({"restaurant_id": restaurant_id})
+    mongo_db.activity_logs.delete_many({"restaurant_id": restaurant_id})
+    mongo_db.restaurants.delete_one({"_id": restaurant_obj_id})
+
+    return {"message": "Restaurant deleted successfully"}
