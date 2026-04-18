@@ -8,6 +8,7 @@ import HistoryPage from './pages/HistoryPage';
 
 import ExplorePage from './pages/ExplorePage';
 import RestaurantDetailsPage from './pages/RestaurantDetailsPage';
+import EditRestaurantPage from './pages/EditRestaurantPage';
 
 import AuthPage from './pages/AuthPage';
 import UserProfilePage from './pages/UserProfilePage';
@@ -61,6 +62,8 @@ function App() {
             <Route path="/add-restaurant" element={<AddRestaurantPage />} />
             <Route path="/owner/profile" element={<OwnerProfilePage />} />
             <Route path="/owner/claim" element={<ClaimRestaurantPage />} />
+
+            <Route path="/owner/edit-restaurant/:id" element={<EditRestaurantPage />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

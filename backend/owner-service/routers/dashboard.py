@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from mongodb import db as mongo_db
 from services.deps import get_current_owner
 from schemas.owner_dashboard import OwnerDashboardResponse
@@ -16,6 +16,9 @@ def normalize_amenities(value):
 def get_owner_dashboard(current_owner=Depends(get_current_owner)):
     restaurants = list(mongo_db.restaurants.find({"owner_id": current_owner["id"]}))
 
+    empty_sentiment = {"label": "No Data", "positive": 0, "neutral": 0, "negative": 0}
+    empty_distribution = [{"stars": s, "count": 0} for s in [5, 4, 3, 2, 1]]
+
     if not restaurants:
         return {
             "restaurants": [],
@@ -23,6 +26,8 @@ def get_owner_dashboard(current_owner=Depends(get_current_owner)):
             "favourites_count": 0,
             "avg_rating": 0.0,
             "recent_reviews": [],
+            "rating_distribution": empty_distribution,
+            "sentiment_summary": empty_sentiment,
         }
 
     restaurant_ids = [str(r["_id"]) for r in restaurants]
@@ -41,6 +46,32 @@ def get_owner_dashboard(current_owner=Depends(get_current_owner)):
     else:
         avg_rating = 0.0
 
+    # Compute over ALL reviews — not just the 5 shown in recent_reviews
+    rating_distribution = [
+        {"stars": stars, "count": sum(1 for r in reviews if r.get("rating") == stars)}
+        for stars in [5, 4, 3, 2, 1]
+    ]
+
+    positive = sum(1 for r in reviews if r.get("rating", 0) >= 4)
+    neutral  = sum(1 for r in reviews if r.get("rating", 0) == 3)
+    negative = sum(1 for r in reviews if r.get("rating", 0) <= 2)
+
+    if positive == 0 and neutral == 0 and negative == 0:
+        sentiment_label = "No Data"
+    elif positive > negative:
+        sentiment_label = "Positive"
+    elif negative > positive:
+        sentiment_label = "Negative"
+    else:
+        sentiment_label = "Mixed"
+
+    sentiment_summary = {
+        "label": sentiment_label,
+        "positive": positive,
+        "neutral": neutral,
+        "negative": negative,
+    }
+
     formatted_restaurants = []
     for restaurant in restaurants:
         restaurant_id = str(restaurant["_id"])
@@ -50,30 +81,27 @@ def get_owner_dashboard(current_owner=Depends(get_current_owner)):
             if restaurant_reviews
             else 0.0
         )
-
-        formatted_restaurants.append(
-            {
-                "id": restaurant_id,
-                "owner_id": restaurant.get("owner_id"),
-                "created_by_user_id": restaurant.get("created_by_user_id"),
-                "name": restaurant.get("name"),
-                "address": restaurant.get("address"),
-                "city": restaurant.get("city"),
-                "state": restaurant.get("state"),
-                "zip_code": restaurant.get("zip_code"),
-                "cuisine": restaurant.get("cuisine"),
-                "price_range": restaurant.get("price_range"),
-                "phone": restaurant.get("phone"),
-                "website": restaurant.get("website"),
-                "hours_of_operation": restaurant.get("hours_of_operation"),
-                "amenities": normalize_amenities(restaurant.get("amenities")),
-                "description": restaurant.get("description"),
-                "image": restaurant.get("image"),
-                "avg_rating": float(restaurant_avg),
-                "view_count": restaurant.get("view_count", 0),
-                "created_at": restaurant.get("created_at"),
-            }
-        )
+        formatted_restaurants.append({
+            "id": restaurant_id,
+            "owner_id": restaurant.get("owner_id"),
+            "created_by_user_id": restaurant.get("created_by_user_id"),
+            "name": restaurant.get("name"),
+            "address": restaurant.get("address"),
+            "city": restaurant.get("city"),
+            "state": restaurant.get("state"),
+            "zip_code": restaurant.get("zip_code"),
+            "cuisine": restaurant.get("cuisine"),
+            "price_range": restaurant.get("price_range"),
+            "phone": restaurant.get("phone"),
+            "website": restaurant.get("website"),
+            "hours_of_operation": restaurant.get("hours_of_operation"),
+            "amenities": normalize_amenities(restaurant.get("amenities")),
+            "description": restaurant.get("description"),
+            "image": restaurant.get("image"),
+            "avg_rating": float(restaurant_avg),
+            "view_count": restaurant.get("view_count", 0),
+            "created_at": restaurant.get("created_at"),
+        })
 
     formatted_reviews = [
         {
@@ -93,4 +121,6 @@ def get_owner_dashboard(current_owner=Depends(get_current_owner)):
         "favourites_count": favourites_count,
         "avg_rating": float(avg_rating),
         "recent_reviews": formatted_reviews,
+        "rating_distribution": rating_distribution,
+        "sentiment_summary": sentiment_summary,
     }

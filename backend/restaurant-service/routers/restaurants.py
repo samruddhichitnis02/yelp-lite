@@ -367,7 +367,7 @@ def search_restaurants(
 def update_restaurant(
     restaurant_id: str,
     payload: RestaurantUpdateRequest,
-    current_user=Depends(get_current_user),
+    current_owner=Depends(get_current_owner),
 ):
     try:
         restaurant_obj_id = ObjectId(restaurant_id)
@@ -375,7 +375,7 @@ def update_restaurant(
         raise HTTPException(status_code=400, detail="Invalid restaurant id")
 
     restaurant = mongo_db.restaurants.find_one(
-        {"_id": restaurant_obj_id, "created_by_user_id": current_user["id"]}
+        {"_id": restaurant_obj_id, "owner_id": current_owner["id"]}
     )
 
     if not restaurant:

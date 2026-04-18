@@ -7,11 +7,11 @@ import {
     FaCommentDots,
     FaChartLine,
     FaPlus,
-    FaEdit,
     FaEye,
     FaChartBar,
     FaSyncAlt,
     FaTrash,
+    FaEdit,
 } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -25,7 +25,6 @@ const OwnerDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Extracted so the Refresh button can also call it
     const fetchDashboard = useCallback(async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
@@ -45,36 +44,24 @@ const OwnerDashboard = () => {
                 avg_rating: restaurant.avg_rating || 0,
             }));
 
-            const rating_distribution = [5, 4, 3, 2, 1].map((stars) => ({
-                stars,
-                count: (data.recent_reviews || []).filter((r) => r.rating === stars).length,
-            }));
+            const rating_distribution = data.rating_distribution || [
+                { stars: 5, count: 0 }, { stars: 4, count: 0 }, { stars: 3, count: 0 },
+                { stars: 2, count: 0 }, { stars: 1, count: 0 },
+            ];
 
-            const positive = (data.recent_reviews || []).filter((r) => r.rating >= 4).length;
-            const neutral = (data.recent_reviews || []).filter((r) => r.rating === 3).length;
-            const negative = (data.recent_reviews || []).filter((r) => r.rating <= 2).length;
-
-            let sentimentLabel = 'Mixed';
-            if (positive > negative) sentimentLabel = 'Positive';
-            if (negative > positive) sentimentLabel = 'Negative';
-            if (positive === 0 && neutral === 0 && negative === 0) sentimentLabel = 'No Data';
+            const sentiment_summary = data.sentiment_summary || {
+                label: 'No Data', score: 0, positive: 0, neutral: 0, negative: 0,
+            };
 
             setDashboardData({
                 restaurants,
                 review_count: data.review_count || 0,
                 favourites_count: data.favourites_count || 0,
                 avg_rating: data.avg_rating || 0,
-                // Sum view_count fresh from the API response every time
                 total_views: restaurants.reduce((sum, r) => sum + (r.view_count || 0), 0),
                 recent_reviews: data.recent_reviews || [],
                 rating_distribution,
-                sentiment_summary: {
-                    label: sentimentLabel,
-                    score: 0,
-                    positive,
-                    neutral,
-                    negative,
-                },
+                sentiment_summary,
             });
         } catch (err) {
             console.error('Failed to load dashboard:', err);
@@ -125,6 +112,28 @@ const OwnerDashboard = () => {
         fetchDashboard();
     }, [fetchDashboard]);
 
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchDashboard(true);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchDashboard]);
+
+    useEffect(() => {
+        const handleFocus = () => {
+            fetchDashboard(true);
+        };
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [fetchDashboard]);
+
     if (loading) {
         return (
             <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
@@ -162,13 +171,6 @@ const OwnerDashboard = () => {
             icon: <FaStore size={22} />,
             color: '#6366f1',
             bg: 'rgba(99,102,241,0.08)',
-        },
-        {
-            label: 'Total Views',
-            value: dashboardData?.total_views ?? 0,
-            icon: <FaEye size={22} />,
-            color: '#0ea5e9',
-            bg: 'rgba(14,165,233,0.08)',
         },
         {
             label: 'Total Favourites',
@@ -282,7 +284,6 @@ const OwnerDashboard = () => {
                         </div>
 
                         <div className="d-flex gap-2 flex-wrap">
-                            {/* ── Refresh button: re-fetches live view counts from the DB ── */}
                             <Button
                                 className="refresh-btn"
                                 onClick={() => fetchDashboard(true)}
@@ -453,29 +454,11 @@ const OwnerDashboard = () => {
                                                         <Badge bg="warning" text="dark">
                                                             <FaStar className="me-1" /> {r.avg_rating > 0 ? Number(r.avg_rating).toFixed(1) : 'New'}
                                                         </Badge>
-                                                        <Badge bg="info">
-                                                            <FaCommentDots className="me-1" /> {r.review_count || 0} reviews
-                                                        </Badge>
-                                                        <Badge bg="secondary">
-                                                            <FaEye className="me-1" /> {r.view_count || 0} views
-                                                        </Badge>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="d-flex gap-1">
-                                                <Button
-                                                    size="sm"
-                                                    className="action-btn"
-                                                    style={{
-                                                        background: 'rgba(99,102,241,0.08)',
-                                                        border: 'none',
-                                                        color: '#6366f1',
-                                                    }}
-                                                    onClick={() => navigate('/owner/profile')}
-                                                >
-                                                    <FaEdit className="me-1" /> Edit
-                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     className="action-btn"
@@ -487,6 +470,18 @@ const OwnerDashboard = () => {
                                                     onClick={() => navigate(`/restaurant/${r.id}`)}
                                                 >
                                                     <FaEye className="me-1" /> View
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="action-btn"
+                                                    style={{
+                                                        background: 'rgba(99,102,241,0.08)',
+                                                        border: 'none',
+                                                        color: '#6366f1',
+                                                    }}
+                                                    onClick={() => navigate(`/owner/edit-restaurant/${r.id}`)}
+                                                >
+                                                    <FaEdit className="me-1" /> Edit
                                                 </Button>
                                                 <Button
                                                     size="sm"
