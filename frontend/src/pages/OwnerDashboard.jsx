@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Spinner, ProgressBar } from 'react-bootstrap';
 import {
     FaStar,
@@ -10,6 +10,7 @@ import {
     FaEdit,
     FaEye,
     FaChartBar,
+    FaSyncAlt,
 } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -20,87 +21,92 @@ const OwnerDashboard = () => {
     const navigate = useNavigate();
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Extracted so the Refresh button can also call it
+    const fetchDashboard = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+
+        try {
+            const token = localStorage.getItem('auth_token');
+
+            const res = await axios.get(`${OWNER_API}/owner/dashboard`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const data = res.data;
+
+            const restaurants = (data.restaurants || []).map((restaurant) => ({
+                ...restaurant,
+                review_count: restaurant.review_count || 0,
+                avg_rating: restaurant.avg_rating || 0,
+            }));
+
+            const rating_distribution = [5, 4, 3, 2, 1].map((stars) => ({
+                stars,
+                count: (data.recent_reviews || []).filter((r) => r.rating === stars).length,
+            }));
+
+            const positive = (data.recent_reviews || []).filter((r) => r.rating >= 4).length;
+            const neutral = (data.recent_reviews || []).filter((r) => r.rating === 3).length;
+            const negative = (data.recent_reviews || []).filter((r) => r.rating <= 2).length;
+
+            let sentimentLabel = 'Mixed';
+            if (positive > negative) sentimentLabel = 'Positive';
+            if (negative > positive) sentimentLabel = 'Negative';
+            if (positive === 0 && neutral === 0 && negative === 0) sentimentLabel = 'No Data';
+
+            setDashboardData({
+                restaurants,
+                review_count: data.review_count || 0,
+                favourites_count: data.favourites_count || 0,
+                avg_rating: data.avg_rating || 0,
+                // Sum view_count fresh from the API response every time
+                total_views: restaurants.reduce((sum, r) => sum + (r.view_count || 0), 0),
+                recent_reviews: data.recent_reviews || [],
+                rating_distribution,
+                sentiment_summary: {
+                    label: sentimentLabel,
+                    score: 0,
+                    positive,
+                    neutral,
+                    negative,
+                },
+            });
+        } catch (err) {
+            console.error('Failed to load dashboard:', err);
+            setDashboardData({
+                restaurants: [],
+                review_count: 0,
+                favourites_count: 0,
+                avg_rating: 0,
+                total_views: 0,
+                recent_reviews: [],
+                rating_distribution: [
+                    { stars: 5, count: 0 },
+                    { stars: 4, count: 0 },
+                    { stars: 3, count: 0 },
+                    { stars: 2, count: 0 },
+                    { stars: 1, count: 0 },
+                ],
+                sentiment_summary: {
+                    label: 'No Data',
+                    score: 0,
+                    positive: 0,
+                    neutral: 0,
+                    negative: 0,
+                },
+            });
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchDashboard = async () => {
-            try {
-                const token = localStorage.getItem('auth_token');
-
-                const res = await axios.get(`${OWNER_API}/owner/dashboard`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                const data = res.data;
-
-                const restaurants = (data.restaurants || []).map((restaurant) => ({
-                    ...restaurant,
-                    review_count: restaurant.review_count || 0,
-                    avg_rating: restaurant.avg_rating || 0,
-                }));
-
-                const rating_distribution = [5, 4, 3, 2, 1].map((stars) => ({
-                    stars,
-                    count: (data.recent_reviews || []).filter((r) => r.rating === stars).length,
-                }));
-
-                const positive = (data.recent_reviews || []).filter((r) => r.rating >= 4).length;
-                const neutral = (data.recent_reviews || []).filter((r) => r.rating === 3).length;
-                const negative = (data.recent_reviews || []).filter((r) => r.rating <= 2).length;
-
-                let sentimentLabel = 'Mixed';
-                if (positive > negative) sentimentLabel = 'Positive';
-                if (negative > positive) sentimentLabel = 'Negative';
-                if (positive === 0 && neutral === 0 && negative === 0) sentimentLabel = 'No Data';
-
-                setDashboardData({
-                    restaurants,
-                    review_count: data.review_count || 0,
-                    favourites_count: data.favourites_count || 0,
-                    avg_rating: data.avg_rating || 0,
-                    total_views: restaurants.reduce((sum, r) => sum + (r.view_count || 0), 0),
-                    recent_reviews: data.recent_reviews || [],
-                    rating_distribution,
-                    sentiment_summary: {
-                        label: sentimentLabel,
-                        score: 0,
-                        positive,
-                        neutral,
-                        negative,
-                    },
-                });
-            } catch (err) {
-                console.error('Failed to load dashboard:', err);
-                setDashboardData({
-                    restaurants: [],
-                    review_count: 0,
-                    favourites_count: 0,
-                    avg_rating: 0,
-                    total_views: 0,
-                    recent_reviews: [],
-                    rating_distribution: [
-                        { stars: 5, count: 0 },
-                        { stars: 4, count: 0 },
-                        { stars: 3, count: 0 },
-                        { stars: 2, count: 0 },
-                        { stars: 1, count: 0 },
-                    ],
-                    sentiment_summary: {
-                        label: 'No Data',
-                        score: 0,
-                        positive: 0,
-                        neutral: 0,
-                        negative: 0,
-                    },
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchDashboard();
-    }, []);
+    }, [fetchDashboard]);
 
     if (loading) {
         return (
@@ -204,6 +210,19 @@ const OwnerDashboard = () => {
                     padding: 5px 12px;
                     transition: all 0.15s;
                 }
+                .refresh-btn {
+                    border-radius: 10px;
+                    font-weight: 600;
+                    background: rgba(255,255,255,0.1);
+                    border: 1.5px solid rgba(255,255,255,0.25);
+                    color: #fff;
+                    transition: background 0.15s;
+                }
+                .refresh-btn:hover {
+                    background: rgba(255,255,255,0.2) !important;
+                    border-color: rgba(255,255,255,0.4) !important;
+                    color: #fff !important;
+                }
             `}</style>
 
             <div
@@ -245,7 +264,25 @@ const OwnerDashboard = () => {
                             </p>
                         </div>
 
-                        <div className="d-flex gap-2">
+                        <div className="d-flex gap-2 flex-wrap">
+                            {/* ── Refresh button: re-fetches live view counts from the DB ── */}
+                            <Button
+                                className="refresh-btn"
+                                onClick={() => fetchDashboard(true)}
+                                disabled={refreshing}
+                            >
+                                {refreshing ? (
+                                    <>
+                                        <Spinner size="sm" animation="border" className="me-2" />
+                                        Refreshing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaSyncAlt className="me-2" /> Refresh
+                                    </>
+                                )}
+                            </Button>
+
                             <Button
                                 as={Link}
                                 to="/owner/claim"

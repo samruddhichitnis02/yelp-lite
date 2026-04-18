@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Badge, Button, Card, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Badge, Button, Card, Spinner, Alert, Form, Modal } from 'react-bootstrap';
 import {
     FaStar,
     FaMapMarkerAlt,
@@ -8,12 +8,16 @@ import {
     FaClock,
     FaBookmark,
     FaGlobe,
+    FaEdit,
+    FaTrash,
+    FaCamera,
 } from 'react-icons/fa';
 import axios from 'axios';
 import ReviewModal from '../components/ReviewModal';
 
 const USER_API = 'http://localhost:8001';
 const RESTAURANT_API = 'http://localhost:8002';
+const REVIEW_API = 'http://localhost:8003';
 
 const CUISINE_IMAGES = {
     Italian: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',
@@ -35,32 +39,137 @@ const CUISINE_IMAGES = {
 const fallbackCuisineImage = (cuisine) =>
     CUISINE_IMAGES[cuisine] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80';
 
-const getImageUrl = (restaurant) => {
-    if (!restaurant?.image) return fallbackCuisineImage(restaurant?.cuisine);
+// Converts a photo_path like "uploads/restaurant_xyz.jpg" → full URL
+const getPhotoUrl = (photoPath) => {
+    if (!photoPath) return null;
+    if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) return photoPath;
+    return `${RESTAURANT_API}/${photoPath}`;
+};
 
-    // Use direct remote URLs only
+// Use first uploaded photo as hero, fall back to restaurant.image, then cuisine fallback
+const getHeroImageUrl = (restaurant, restaurantPhotos) => {
+    if (restaurantPhotos && restaurantPhotos.length > 0) {
+        return getPhotoUrl(restaurantPhotos[0].photo_path);
+    }
+    if (!restaurant?.image) return fallbackCuisineImage(restaurant?.cuisine);
     if (restaurant.image.startsWith('http://') || restaurant.image.startsWith('https://')) {
         return restaurant.image;
     }
-
-    // Ignore broken local upload paths for now and use fallback
     if (restaurant.image.startsWith('uploads/')) {
-        return fallbackCuisineImage(restaurant?.cuisine);
+        return `${RESTAURANT_API}/${restaurant.image}`;
     }
-
     return fallbackCuisineImage(restaurant?.cuisine);
 };
 
+// ── Edit Review Modal ──────────────────────────────────────────────────────────
+const EditReviewModal = ({ show, handleClose, review, onUpdated }) => {
+    const [rating, setRating] = useState(review?.rating || 0);
+    const [hover, setHover] = useState(null);
+    const [comment, setComment] = useState(review?.comment || '');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (review) {
+            setRating(review.rating || 0);
+            setComment(review.comment || '');
+            setError('');
+        }
+    }, [review]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (rating === 0) { setError('Please select a star rating.'); return; }
+        const token = localStorage.getItem('auth_token');
+        if (!token) { setError('Please log in first.'); return; }
+        setLoading(true);
+        setError('');
+        try {
+            await axios.put(
+                `${REVIEW_API}/reviews/${review.id}`,
+                { rating, comment },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            handleClose();
+            if (onUpdated) onUpdated();
+        } catch (err) {
+            setError(err?.response?.data?.detail || 'Failed to update review.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Modal show={show} onHide={handleClose} centered>
+            <Modal.Header closeButton className="border-0 pb-0">
+                <Modal.Title className="fw-bold">Edit Your Review</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {error && <Alert variant="danger">{error}</Alert>}
+                <Form onSubmit={handleSubmit}>
+                    <div className="text-center mb-4">
+                        <h5 className="text-muted mb-3">Update your rating</h5>
+                        <div className="d-flex justify-content-center gap-2">
+                            {[...Array(5)].map((_, index) => {
+                                const currentRating = index + 1;
+                                return (
+                                    <FaStar
+                                        key={index}
+                                        size={40}
+                                        style={{ cursor: 'pointer', transition: 'color 0.2s' }}
+                                        color={currentRating <= (hover || rating) ? '#ffc107' : '#e4e5e9'}
+                                        onClick={() => setRating(currentRating)}
+                                        onMouseEnter={() => setHover(currentRating)}
+                                        onMouseLeave={() => setHover(null)}
+                                    />
+                                );
+                            })}
+                        </div>
+                        {rating > 0 && (
+                            <p className="mt-2 text-primary fw-bold">
+                                {['Terrible', 'Poor', 'Average', 'Good', 'Excellent'][rating - 1]}
+                            </p>
+                        )}
+                    </div>
+                    <Form.Group className="mb-3">
+                        <Form.Label className="fw-bold">Comment</Form.Label>
+                        <Form.Control
+                            as="textarea"
+                            rows={4}
+                            placeholder="Update your comment..."
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                        />
+                    </Form.Group>
+                    <Button type="submit" variant="primary" className="w-100 rounded-pill fw-bold py-2" disabled={loading}>
+                        {loading
+                            ? <><Spinner size="sm" animation="border" className="me-2" />Saving...</>
+                            : 'Save Changes'}
+                    </Button>
+                </Form>
+            </Modal.Body>
+        </Modal>
+    );
+};
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 const RestaurantDetailsPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
     const [restaurant, setRestaurant] = useState(null);
+    const [restaurantPhotos, setRestaurantPhotos] = useState([]); // uploaded photos from restaurant_photos collection
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [favouriteLoading, setFavouriteLoading] = useState(false);
     const [favouriteSuccess, setFavouriteSuccess] = useState('');
+    const [lightboxPhoto, setLightboxPhoto] = useState(null); // fullscreen photo
+
+    // Edit review state
+    const [editingReview, setEditingReview] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(null);
 
     const isLoggedIn = !!localStorage.getItem('auth_token');
     const role = localStorage.getItem('auth_role');
@@ -69,8 +178,13 @@ const RestaurantDetailsPage = () => {
     const fetchRestaurant = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${RESTAURANT_API}/restaurants/${id}`);
-            setRestaurant(res.data);
+            // Fetch restaurant details AND uploaded photos in parallel
+            const [restaurantRes, photosRes] = await Promise.all([
+                axios.get(`${RESTAURANT_API}/restaurants/${id}`),
+                axios.get(`${RESTAURANT_API}/restaurants/${id}/photos`),
+            ]);
+            setRestaurant(restaurantRes.data);
+            setRestaurantPhotos(photosRes.data || []);
         } catch (err) {
             setError('Failed to load restaurant details.');
         } finally {
@@ -83,23 +197,14 @@ const RestaurantDetailsPage = () => {
     }, [id]);
 
     const handleAddFavourite = async () => {
-        if (!isLoggedIn) {
-            navigate('/auth');
-            return;
-        }
-
+        if (!isLoggedIn) { navigate('/auth'); return; }
         setFavouriteLoading(true);
         setFavouriteSuccess('');
-
         try {
             await axios.post(
                 `${USER_API}/favourites/${id}`,
                 {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-                    },
-                }
+                { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` } }
             );
             setFavouriteSuccess('Added to favourites!');
             setTimeout(() => setFavouriteSuccess(''), 2500);
@@ -114,6 +219,26 @@ const RestaurantDetailsPage = () => {
     const handleReviewSubmitted = () => {
         setShowReviewModal(false);
         fetchRestaurant();
+    };
+
+    const handleOpenEdit = (review) => {
+        setEditingReview(review);
+        setShowEditModal(true);
+    };
+
+    const handleDeleteReview = async (reviewId) => {
+        if (!window.confirm('Delete this review?')) return;
+        setDeleteLoading(reviewId);
+        try {
+            await axios.delete(`${REVIEW_API}/reviews/${reviewId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+            });
+            fetchRestaurant();
+        } catch (err) {
+            alert(err?.response?.data?.detail || 'Failed to delete review.');
+        } finally {
+            setDeleteLoading(null);
+        }
     };
 
     if (loading) {
@@ -132,16 +257,15 @@ const RestaurantDetailsPage = () => {
         );
     }
 
-    const imageUrl = getImageUrl(restaurant);
+    const heroImageUrl = getHeroImageUrl(restaurant, restaurantPhotos);
 
     return (
         <div className="restaurant-details-page">
-            <div
-                className="position-relative mb-4"
-                style={{ height: '430px', width: '100%', overflow: 'hidden' }}
-            >
+
+            {/* ── Hero Banner ── */}
+            <div className="position-relative mb-4" style={{ height: '430px', width: '100%', overflow: 'hidden' }}>
                 <img
-                    src={imageUrl}
+                    src={heroImageUrl}
                     alt={restaurant.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.72 }}
                     onError={(e) => {
@@ -149,12 +273,10 @@ const RestaurantDetailsPage = () => {
                         e.currentTarget.src = fallbackCuisineImage(restaurant.cuisine);
                     }}
                 />
-
                 <div
                     className="position-absolute top-0 start-0 w-100 h-100"
                     style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.82))' }}
-                ></div>
-
+                />
                 <div className="position-absolute bottom-0 w-100">
                     <Container className="pb-4 pt-5 text-white">
                         <h1 className="display-4 fw-bold mb-2">{restaurant.name}</h1>
@@ -164,14 +286,16 @@ const RestaurantDetailsPage = () => {
                                 {restaurant.avg_rating > 0 ? Number(restaurant.avg_rating).toFixed(1) : '0'}
                                 {` (${restaurant.review_count || 0} reviews)`}
                             </Badge>
-
                             <Badge bg="light" text="dark" className="fs-6 p-2">
                                 {restaurant.price_range || '$'} • {restaurant.cuisine || 'Various'}
                             </Badge>
-
                             {restaurant.amenities && (
-                                <Badge bg="secondary" className="fs-6 p-2">
-                                    {restaurant.amenities}
+                                <Badge bg="secondary" className="fs-6 p-2">{restaurant.amenities}</Badge>
+                            )}
+                            {restaurantPhotos.length > 0 && (
+                                <Badge bg="dark" className="fs-6 p-2">
+                                    <FaCamera className="me-1" />
+                                    {restaurantPhotos.length} photo{restaurantPhotos.length !== 1 ? 's' : ''}
                                 </Badge>
                             )}
                         </div>
@@ -181,38 +305,27 @@ const RestaurantDetailsPage = () => {
 
             <Container>
                 {favouriteSuccess && (
-                    <Alert
-                        variant={favouriteSuccess.includes('Added') ? 'success' : 'warning'}
-                        className="mb-3"
-                    >
+                    <Alert variant={favouriteSuccess.includes('Added') ? 'success' : 'warning'} className="mb-3">
                         {favouriteSuccess}
                     </Alert>
                 )}
 
                 <Row className="mb-4">
                     <Col md={8}>
+
+                        {/* ── Action buttons ── */}
                         <div className="d-flex gap-2 border-bottom pb-4 mb-4 flex-wrap">
                             {isLoggedIn && role === 'user' && (
-                                <Button
-                                    onClick={() => setShowReviewModal(true)}
-                                    variant="primary"
-                                    className="px-4"
-                                >
+                                <Button onClick={() => setShowReviewModal(true)} variant="primary" className="px-4">
                                     <FaStar className="me-2" /> Write a Review
                                 </Button>
                             )}
-
                             {isLoggedIn && role === 'user' && (
-                                <Button
-                                    variant="outline-secondary"
-                                    onClick={handleAddFavourite}
-                                    disabled={favouriteLoading}
-                                >
+                                <Button variant="outline-secondary" onClick={handleAddFavourite} disabled={favouriteLoading}>
                                     <FaBookmark className="me-2" />
                                     {favouriteLoading ? 'Saving...' : 'Save'}
                                 </Button>
                             )}
-
                             {!isLoggedIn && (
                                 <Button variant="outline-primary" onClick={() => navigate('/auth')}>
                                     Log in to Write a Review
@@ -220,6 +333,7 @@ const RestaurantDetailsPage = () => {
                             )}
                         </div>
 
+                        {/* ── Overview ── */}
                         <div className="mb-5">
                             <h3 className="fw-bold mb-3">Overview</h3>
                             <p className="fs-5 text-secondary mb-0">
@@ -227,41 +341,70 @@ const RestaurantDetailsPage = () => {
                             </p>
                         </div>
 
+                        {/* ── Photo Gallery — only shown when photos exist ── */}
+                        {restaurantPhotos.length > 0 && (
+                            <div className="mb-5">
+                                <h3 className="fw-bold mb-4">
+                                    Photos{' '}
+                                    <Badge bg="secondary" pill>{restaurantPhotos.length}</Badge>
+                                </h3>
+                                <Row xs={2} md={3} className="g-2">
+                                    {restaurantPhotos.map((photo) => (
+                                        <Col key={photo.id}>
+                                            <div
+                                                className="rounded overflow-hidden"
+                                                style={{ height: '160px', cursor: 'pointer' }}
+                                                onClick={() => setLightboxPhoto(getPhotoUrl(photo.photo_path))}
+                                            >
+                                                <img
+                                                    src={getPhotoUrl(photo.photo_path)}
+                                                    alt="Restaurant"
+                                                    style={{
+                                                        width: '100%', height: '100%', objectFit: 'cover',
+                                                        transition: 'transform 0.2s',
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                    onError={(e) => {
+                                                        e.currentTarget.onerror = null;
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
+                                                />
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                            </div>
+                        )}
+
+                        {/* ── Reviews ── */}
                         <div className="mb-5">
                             <h3 className="fw-bold mb-4">
                                 Reviews{' '}
-                                <Badge bg="secondary" pill>
-                                    {restaurant.review_count || 0}
-                                </Badge>
+                                <Badge bg="secondary" pill>{restaurant.review_count || 0}</Badge>
                             </h3>
 
                             {restaurant.reviews && restaurant.reviews.length > 0 ? (
                                 restaurant.reviews.map((review) => {
                                     const isOwnReview =
                                         currentUser?.id && String(review.user_id) === String(currentUser.id);
-
                                     const avatarLetter = isOwnReview
                                         ? (currentUser?.name?.[0] || 'Y').toUpperCase()
                                         : 'U';
-
-                                    const displayName = isOwnReview ? 'You' : `User ${String(review.user_id).slice(-4)}`;
+                                    const displayName = isOwnReview
+                                        ? 'You'
+                                        : `User ${String(review.user_id).slice(-4)}`;
                                     const starColor = '#28a745';
 
                                     return (
-                                        <Card
-                                            key={review.id}
-                                            className="mb-3 shadow-sm border-0"
-                                            style={{ borderRadius: '16px' }}
-                                        >
+                                        <Card key={review.id} className="mb-3 shadow-sm border-0" style={{ borderRadius: '16px' }}>
                                             <Card.Body className="p-4">
                                                 <div className="d-flex justify-content-between align-items-start mb-3">
                                                     <div className="d-flex align-items-center gap-3">
                                                         <div
                                                             className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
                                                             style={{
-                                                                width: 46,
-                                                                height: 46,
-                                                                fontSize: 18,
+                                                                width: 46, height: 46, fontSize: 18,
                                                                 background: isOwnReview
                                                                     ? 'linear-gradient(135deg, #667eea, #764ba2)'
                                                                     : 'linear-gradient(135deg, #f093fb, #f5576c)',
@@ -269,7 +412,6 @@ const RestaurantDetailsPage = () => {
                                                         >
                                                             {avatarLetter}
                                                         </div>
-
                                                         <div>
                                                             <div className="fw-bold text-dark" style={{ fontSize: '0.95rem' }}>
                                                                 {displayName}
@@ -282,6 +424,9 @@ const RestaurantDetailsPage = () => {
                                                                           day: 'numeric',
                                                                       })
                                                                     : ''}
+                                                                {review.updated_at && review.updated_at !== review.created_at && (
+                                                                    <span className="ms-1 text-muted fst-italic">(edited)</span>
+                                                                )}
                                                             </small>
                                                         </div>
                                                     </div>
@@ -301,19 +446,35 @@ const RestaurantDetailsPage = () => {
                                                         <small className="text-muted" style={{ fontSize: '0.75rem' }}>
                                                             {review.rating}/5
                                                         </small>
+                                                        {isOwnReview && (
+                                                            <div className="d-flex gap-1 mt-1">
+                                                                <Button
+                                                                    variant="outline-primary" size="sm"
+                                                                    className="py-0 px-2" style={{ fontSize: '0.75rem' }}
+                                                                    onClick={() => handleOpenEdit(review)}
+                                                                >
+                                                                    <FaEdit className="me-1" />Edit
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline-danger" size="sm"
+                                                                    className="py-0 px-2" style={{ fontSize: '0.75rem' }}
+                                                                    disabled={deleteLoading === review.id}
+                                                                    onClick={() => handleDeleteReview(review.id)}
+                                                                >
+                                                                    {deleteLoading === review.id
+                                                                        ? <Spinner size="sm" animation="border" />
+                                                                        : <><FaTrash className="me-1" />Delete</>}
+                                                                </Button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
-                                                <p
-                                                    className="mb-2 text-dark"
-                                                    style={{
-                                                        fontSize: '0.92rem',
-                                                        lineHeight: '1.6',
-                                                        borderLeft: `3px solid ${starColor}`,
-                                                        paddingLeft: '12px',
-                                                        fontStyle: 'italic',
-                                                    }}
-                                                >
+                                                <p className="mb-2 text-dark" style={{
+                                                    fontSize: '0.92rem', lineHeight: '1.6',
+                                                    borderLeft: `3px solid ${starColor}`,
+                                                    paddingLeft: '12px', fontStyle: 'italic',
+                                                }}>
                                                     "{review.comment || 'No comment left.'}"
                                                 </p>
                                             </Card.Body>
@@ -329,6 +490,7 @@ const RestaurantDetailsPage = () => {
                         </div>
                     </Col>
 
+                    {/* ── Sidebar ── */}
                     <Col md={4}>
                         <Card className="shadow-sm border-0 sticky-top" style={{ top: '90px', borderRadius: '18px' }}>
                             <Card.Body className="p-4">
@@ -369,6 +531,41 @@ const RestaurantDetailsPage = () => {
                 </Row>
             </Container>
 
+            {/* ── Lightbox: click any photo to view fullscreen ── */}
+            {lightboxPhoto && (
+                <div
+                    onClick={() => setLightboxPhoto(null)}
+                    style={{
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(0,0,0,0.88)',
+                        zIndex: 9999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'zoom-out',
+                    }}
+                >
+                    <img
+                        src={lightboxPhoto}
+                        alt="Full size"
+                        style={{
+                            maxWidth: '90vw', maxHeight: '90vh',
+                            borderRadius: '12px', objectFit: 'contain',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                        onClick={() => setLightboxPhoto(null)}
+                        style={{
+                            position: 'absolute', top: 24, right: 32,
+                            background: 'none', border: 'none',
+                            color: '#fff', fontSize: '2rem', cursor: 'pointer',
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
+
+            {/* ── New Review Modal ── */}
             <ReviewModal
                 show={showReviewModal}
                 handleClose={() => setShowReviewModal(false)}
@@ -376,6 +573,20 @@ const RestaurantDetailsPage = () => {
                 restaurantId={restaurant.id}
                 onReviewSubmitted={handleReviewSubmitted}
             />
+
+            {/* ── Edit Review Modal ── */}
+            {editingReview && (
+                <EditReviewModal
+                    show={showEditModal}
+                    handleClose={() => { setShowEditModal(false); setEditingReview(null); }}
+                    review={editingReview}
+                    onUpdated={() => {
+                        setShowEditModal(false);
+                        setEditingReview(null);
+                        fetchRestaurant();
+                    }}
+                />
+            )}
         </div>
     );
 };
