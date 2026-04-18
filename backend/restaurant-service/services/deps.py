@@ -89,3 +89,37 @@ def get_optional_user(token: Optional[str] = Depends(oauth2_scheme_optional)):
 
     user["id"] = str(user["_id"])
     return user
+
+
+def get_current_owner(token: str = Depends(oauth2_scheme)):
+    payload = decode_access_token(token)
+
+    if payload.get("role") != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not an owner token"
+        )
+
+    owner_id = payload.get("sub")
+    if not owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
+
+    try:
+        owner = mongo_db.owners.find_one({"_id": ObjectId(owner_id)})
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid owner id in token"
+        )
+
+    if not owner:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Owner not found"
+        )
+
+    owner["id"] = str(owner["_id"])
+    return owner

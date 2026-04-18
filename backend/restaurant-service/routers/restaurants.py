@@ -8,9 +8,8 @@ from schemas.restaurant import (
     RestaurantUpdateRequest,
 )
 from typing import Optional, List
-from services.deps import get_current_user
+from services.deps import get_current_user, get_current_owner
 from datetime import datetime, timezone
-
 import re
 
 
@@ -287,11 +286,11 @@ def restaurant_public_dict(doc: dict) -> dict:
 @router.post("/", response_model=RestaurantPublic)
 def create_restaurant(
     payload: RestaurantCreateRequest,
-    current_user=Depends(get_current_user),
+    current_owner=Depends(get_current_owner),
 ):
     restaurant_doc = {
-        "owner_id": None,
-        "created_by_user_id": current_user["id"],
+        "owner_id": current_owner["id"],
+        "created_by_user_id": None,
         "name": payload.name,
         "address": payload.address,
         "city": payload.city,
@@ -474,3 +473,30 @@ def get_restaurant_details(restaurant_id: str):
         "review_count": len(formatted_reviews),
         "reviews": formatted_reviews,
     }
+
+@router.post("/{restaurant_id}/claim")
+def claim_restaurant(
+    restaurant_id: str,
+    current_owner=Depends(get_current_owner),
+):
+    try:
+        restaurant_obj_id = ObjectId(restaurant_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid restaurant id")
+
+    restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
+
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Check if already claimed
+    if restaurant.get("owner_id"):
+        raise HTTPException(status_code=400, detail="Restaurant already claimed")
+
+    # Assign owner
+    mongo_db.restaurants.update_one(
+        {"_id": restaurant_obj_id},
+        {"$set": {"owner_id": current_owner["id"]}},
+    )
+
+    return {"message": "Restaurant claimed successfully"}

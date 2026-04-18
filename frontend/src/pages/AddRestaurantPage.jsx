@@ -50,16 +50,38 @@ const AddRestaurantPage = () => {
     };
 
     const handlePhotoSelect = (e) => {
-        const files = Array.from(e.target.files);
-        setPhotos(prev => [...prev, ...files]);
-        const previews = files.map(f => URL.createObjectURL(f));
-        setPhotoPreviews(prev => [...prev, ...previews]);
+        const files = Array.from(e.target.files || []);
+        setPhotos((prev) => [...prev, ...files]);
+
+        const previews = files.map((f) => URL.createObjectURL(f));
+        setPhotoPreviews((prev) => [...prev, ...previews]);
+
         e.target.value = '';
     };
 
     const removePhoto = (index) => {
-        setPhotos(prev => prev.filter((_, i) => i !== index));
-        setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const uploadRestaurantPhotos = async (restaurantId, token) => {
+        if (!photos.length) return;
+
+        for (const photo of photos) {
+            const uploadData = new FormData();
+            uploadData.append('file', photo);
+
+            await axios.post(
+                `${RESTAURANT_API}/restaurants/${restaurantId}/photos`,
+                uploadData,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'multipart/form-data',
+                    },
+                }
+            );
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -90,7 +112,7 @@ const AddRestaurantPage = () => {
                     phone: formData.phone,
                     website: formData.website,
                     hours_of_operation: formData.hours_of_operation,
-                    amenities: formData.amenities,
+                    amenities: formData.amenities ? formData.amenities.trim() : '',
                     price_range: formData.price_range,
                     image: '',
                 },
@@ -101,15 +123,34 @@ const AddRestaurantPage = () => {
                 }
             );
 
-            setSuccess(
-                photos.length > 0
-                    ? 'Restaurant listing created successfully! Photo upload will be wired after restaurant photo routes are finalized.'
-                    : 'Restaurant listing created successfully!'
-            );
+            const restaurantId = res.data.id;
 
-            setTimeout(() => navigate(`/restaurant/${res.data.id}`), 1500);
+            try {
+                await uploadRestaurantPhotos(restaurantId, token);
+                setSuccess(
+                    photos.length > 0
+                        ? 'Restaurant listing created successfully with photos!'
+                        : 'Restaurant listing created successfully!'
+                );
+            } catch (photoErr) {
+                console.error('Restaurant photo upload error:', photoErr?.response?.data || photoErr);
+                setSuccess(
+                    'Restaurant listing created successfully, but photo upload failed. The restaurant was still created.'
+                );
+            }
+
+            setTimeout(() => navigate(`/restaurant/${restaurantId}`), 1500);
         } catch (err) {
-            setError(err?.response?.data?.detail || 'Failed to create restaurant. Please try again.');
+            console.error('Create restaurant error:', err?.response?.data || err);
+            setError(
+                typeof err?.response?.data?.detail === 'string'
+                    ? err.response.data.detail
+                    : JSON.stringify(
+                          err?.response?.data?.detail ||
+                          err?.response?.data ||
+                          'Failed to create restaurant. Please try again.'
+                      )
+            );
         } finally {
             setLoading(false);
         }
@@ -124,7 +165,7 @@ const AddRestaurantPage = () => {
                             <FaStore className="me-2 text-primary" /> Add New Restaurant
                         </h2>
                         <p className="text-muted">
-                            Know a great restaurant that's not listed? Add it here for others to discover.
+                            Know a great restaurant that&apos;s not listed? Add it here for others to discover.
                         </p>
                     </div>
 
@@ -164,7 +205,7 @@ const AddRestaurantPage = () => {
                                                 value={formData.cuisine}
                                                 onChange={handleChange}
                                             >
-                                                {CUISINES.map(c => (
+                                                {CUISINES.map((c) => (
                                                     <option key={c} value={c}>{c}</option>
                                                 ))}
                                             </Form.Select>
@@ -232,7 +273,7 @@ const AddRestaurantPage = () => {
                                                 onChange={handleChange}
                                             >
                                                 <option value="">Select state...</option>
-                                                {US_STATES.map(s => (
+                                                {US_STATES.map((s) => (
                                                     <option key={s} value={s}>{s}</option>
                                                 ))}
                                             </Form.Select>
@@ -339,7 +380,7 @@ const AddRestaurantPage = () => {
                                     <Button
                                         variant="outline-secondary"
                                         type="button"
-                                        onClick={() => photoInputRef.current.click()}
+                                        onClick={() => photoInputRef.current?.click()}
                                     >
                                         <FaImage className="me-2" /> Add Photos
                                     </Button>
@@ -371,7 +412,7 @@ const AddRestaurantPage = () => {
                                                             style={{
                                                                 width: '100%',
                                                                 height: '100%',
-                                                                objectFit: 'cover'
+                                                                objectFit: 'cover',
                                                             }}
                                                         />
                                                         <Button

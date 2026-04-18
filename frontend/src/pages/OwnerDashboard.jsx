@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Spinner, ProgressBar } from 'react-bootstrap';
-import { FaStar, FaStore, FaHeart, FaCommentDots, FaChartLine, FaPlus, FaEdit, FaEye, FaChartBar } from 'react-icons/fa';
+import {
+    FaStar,
+    FaStore,
+    FaHeart,
+    FaCommentDots,
+    FaChartLine,
+    FaPlus,
+    FaEdit,
+    FaEye,
+    FaChartBar,
+} from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import axios from 'axios';
+
+const OWNER_API = 'http://localhost:8004';
 
 const OwnerDashboard = () => {
     const navigate = useNavigate();
@@ -10,12 +22,55 @@ const OwnerDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('/restaurants/owner/dashboard')
-            .then((res) => {
-                setDashboardData(res.data);
-                setLoading(false);
-            })
-            .catch((err) => {
+        const fetchDashboard = async () => {
+            try {
+                const token = localStorage.getItem('auth_token');
+
+                const res = await axios.get(`${OWNER_API}/owner/dashboard`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const data = res.data;
+
+                const restaurants = (data.restaurants || []).map((restaurant) => ({
+                    ...restaurant,
+                    review_count: restaurant.review_count || 0,
+                    avg_rating: restaurant.avg_rating || 0,
+                }));
+
+                const rating_distribution = [5, 4, 3, 2, 1].map((stars) => ({
+                    stars,
+                    count: (data.recent_reviews || []).filter((r) => r.rating === stars).length,
+                }));
+
+                const positive = (data.recent_reviews || []).filter((r) => r.rating >= 4).length;
+                const neutral = (data.recent_reviews || []).filter((r) => r.rating === 3).length;
+                const negative = (data.recent_reviews || []).filter((r) => r.rating <= 2).length;
+
+                let sentimentLabel = 'Mixed';
+                if (positive > negative) sentimentLabel = 'Positive';
+                if (negative > positive) sentimentLabel = 'Negative';
+                if (positive === 0 && neutral === 0 && negative === 0) sentimentLabel = 'No Data';
+
+                setDashboardData({
+                    restaurants,
+                    review_count: data.review_count || 0,
+                    favourites_count: data.favourites_count || 0,
+                    avg_rating: data.avg_rating || 0,
+                    total_views: restaurants.reduce((sum, r) => sum + (r.view_count || 0), 0),
+                    recent_reviews: data.recent_reviews || [],
+                    rating_distribution,
+                    sentiment_summary: {
+                        label: sentimentLabel,
+                        score: 0,
+                        positive,
+                        neutral,
+                        negative,
+                    },
+                });
+            } catch (err) {
                 console.error('Failed to load dashboard:', err);
                 setDashboardData({
                     restaurants: [],
@@ -39,8 +94,12 @@ const OwnerDashboard = () => {
                         negative: 0,
                     },
                 });
+            } finally {
                 setLoading(false);
-            });
+            }
+        };
+
+        fetchDashboard();
     }, []);
 
     if (loading) {
@@ -68,10 +127,10 @@ const OwnerDashboard = () => {
         sentiment.label === 'Positive'
             ? '#10b981'
             : sentiment.label === 'Negative'
-                ? '#e94560'
-                : sentiment.label === 'No Data'
-                    ? '#94a3b8'
-                    : '#f59e0b';
+              ? '#e94560'
+              : sentiment.label === 'No Data'
+                ? '#94a3b8'
+                : '#3b82f6';
 
     const stats = [
         {
@@ -97,7 +156,7 @@ const OwnerDashboard = () => {
         },
         {
             label: 'Avg Rating',
-            value: dashboardData?.avg_rating ?? '—',
+            value: dashboardData?.avg_rating ? Number(dashboardData.avg_rating).toFixed(1) : '0.0',
             icon: <FaStar size={22} />,
             color: '#f59e0b',
             bg: 'rgba(245,158,11,0.08)',
@@ -338,8 +397,7 @@ const OwnerDashboard = () => {
                                                     </div>
                                                     <div className="d-flex flex-wrap gap-2 mt-2">
                                                         <Badge bg="warning" text="dark">
-                                                            <FaStar className="me-1" />{' '}
-                                                            {r.avg_rating > 0 ? Number(r.avg_rating).toFixed(1) : 'New'}
+                                                            <FaStar className="me-1" /> {r.avg_rating > 0 ? Number(r.avg_rating).toFixed(1) : 'New'}
                                                         </Badge>
                                                         <Badge bg="info">
                                                             <FaCommentDots className="me-1" /> {r.review_count || 0} reviews

@@ -156,14 +156,9 @@ export const signupOwner = async ({ name, email, password, business_name, locati
  * Owner login
  */
 export const loginOwner = async ({ email, password }) => {
-  const formData = new URLSearchParams();
-  formData.append('username', email.trim());
-  formData.append('password', password);
-
-  const response = await axios.post(`${OWNER_AUTH_API}/auth/owner/login`, formData, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+  const response = await axios.post(`${OWNER_AUTH_API}/auth/owner/login`, {
+    email: email.trim(),
+    password,
   });
 
   return response.data;
