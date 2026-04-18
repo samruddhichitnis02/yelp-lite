@@ -286,11 +286,11 @@ def restaurant_public_dict(doc: dict) -> dict:
 @router.post("/", response_model=RestaurantPublic)
 def create_restaurant(
     payload: RestaurantCreateRequest,
-    current_owner=Depends(get_current_owner),
+    current_user=Depends(get_current_user),
 ):
     restaurant_doc = {
-        "owner_id": current_owner["id"],
-        "created_by_user_id": None,
+        "owner_id": None,
+        "created_by_user_id": current_user["id"],
         "name": payload.name,
         "address": payload.address,
         "city": payload.city,

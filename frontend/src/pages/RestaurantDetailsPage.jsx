@@ -39,14 +39,12 @@ const CUISINE_IMAGES = {
 const fallbackCuisineImage = (cuisine) =>
     CUISINE_IMAGES[cuisine] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80';
 
-// Converts a photo_path like "uploads/restaurant_xyz.jpg" → full URL
 const getPhotoUrl = (photoPath) => {
     if (!photoPath) return null;
     if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) return photoPath;
     return `${RESTAURANT_API}/${photoPath}`;
 };
 
-// Use first uploaded photo as hero, fall back to restaurant.image, then cuisine fallback
 const getHeroImageUrl = (restaurant, restaurantPhotos) => {
     if (restaurantPhotos && restaurantPhotos.length > 0) {
         return getPhotoUrl(restaurantPhotos[0].photo_path);
@@ -158,18 +156,18 @@ const RestaurantDetailsPage = () => {
     const navigate = useNavigate();
 
     const [restaurant, setRestaurant] = useState(null);
-    const [restaurantPhotos, setRestaurantPhotos] = useState([]); // uploaded photos from restaurant_photos collection
+    const [restaurantPhotos, setRestaurantPhotos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [favouriteLoading, setFavouriteLoading] = useState(false);
     const [favouriteSuccess, setFavouriteSuccess] = useState('');
-    const [lightboxPhoto, setLightboxPhoto] = useState(null); // fullscreen photo
+    const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
-    // Edit review state
     const [editingReview, setEditingReview] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(null);
+    const [reviewPhotos, setReviewPhotos] = useState({}); // { reviewId: [photo, ...] }
 
     const isLoggedIn = !!localStorage.getItem('auth_token');
     const role = localStorage.getItem('auth_role');
@@ -178,13 +176,34 @@ const RestaurantDetailsPage = () => {
     const fetchRestaurant = async () => {
         setLoading(true);
         try {
-            // Fetch restaurant details AND uploaded photos in parallel
             const [restaurantRes, photosRes] = await Promise.all([
                 axios.get(`${RESTAURANT_API}/restaurants/${id}`),
                 axios.get(`${RESTAURANT_API}/restaurants/${id}/photos`),
             ]);
             setRestaurant(restaurantRes.data);
             setRestaurantPhotos(photosRes.data || []);
+
+            // Fetch review photos for every review
+            const reviews = restaurantRes.data?.reviews || [];
+            if (reviews.length > 0) {
+                const token = localStorage.getItem('auth_token');
+                const headers = token ? { Authorization: `Bearer ${token}` } : {};
+                const photoMap = {};
+                await Promise.all(
+                    reviews.map(async (review) => {
+                        try {
+                            const res = await axios.get(
+                                `${REVIEW_API}/reviews/${review.id}/photos`,
+                                { headers }
+                            );
+                            photoMap[review.id] = res.data || [];
+                        } catch {
+                            photoMap[review.id] = [];
+                        }
+                    })
+                );
+                setReviewPhotos(photoMap);
+            }
         } catch (err) {
             setError('Failed to load restaurant details.');
         } finally {
@@ -341,7 +360,7 @@ const RestaurantDetailsPage = () => {
                             </p>
                         </div>
 
-                        {/* ── Photo Gallery — only shown when photos exist ── */}
+                        {/* ── Restaurant Photo Gallery ── */}
                         {restaurantPhotos.length > 0 && (
                             <div className="mb-5">
                                 <h3 className="fw-bold mb-4">
@@ -477,6 +496,32 @@ const RestaurantDetailsPage = () => {
                                                 }}>
                                                     "{review.comment || 'No comment left.'}"
                                                 </p>
+
+                                                {/* ── Review Photos ── */}
+                                                {reviewPhotos[review.id] && reviewPhotos[review.id].length > 0 && (
+                                                    <div className="d-flex flex-wrap gap-2 mt-3">
+                                                        {reviewPhotos[review.id].map((photo, idx) => (
+                                                            <img
+                                                                key={idx}
+                                                                src={`${REVIEW_API}/${photo.photo_path}`}
+                                                                alt="review"
+                                                                style={{
+                                                                    width: '90px',
+                                                                    height: '90px',
+                                                                    objectFit: 'cover',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer',
+                                                                    border: '2px solid #f1f5f9',
+                                                                }}
+                                                                onClick={() => setLightboxPhoto(`${REVIEW_API}/${photo.photo_path}`)}
+                                                                onError={(e) => {
+                                                                    e.currentTarget.onerror = null;
+                                                                    e.currentTarget.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </Card.Body>
                                         </Card>
                                     );
@@ -531,7 +576,7 @@ const RestaurantDetailsPage = () => {
                 </Row>
             </Container>
 
-            {/* ── Lightbox: click any photo to view fullscreen ── */}
+            {/* ── Lightbox ── */}
             {lightboxPhoto && (
                 <div
                     onClick={() => setLightboxPhoto(null)}
