@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { FaMapMarkerAlt, FaStar } from 'react-icons/fa';
@@ -97,27 +97,51 @@ const getCuisineImage = (cuisine, id) => {
     return images[getIdHash(id) % images.length];
 };
 
-const getImageUrl = (restaurant) => {
-    if (!restaurant?.image) {
-        return getCuisineImage(restaurant?.cuisine, restaurant?.id);
-    }
-
-    if (
-        restaurant.image.startsWith('http://') ||
-        restaurant.image.startsWith('https://')
-    ) {
-        return restaurant.image;
-    }
-
-    if (restaurant.image.startsWith('uploads/')) {
-        return getCuisineImage(restaurant?.cuisine, restaurant?.id);
-    }
-
-    return getCuisineImage(restaurant?.cuisine, restaurant?.id);
-};
-
 const RestaurantCard = ({ restaurant }) => {
-    const imageUrl = getImageUrl(restaurant);
+    const [cardImage, setCardImage] = useState(null);
+
+    useEffect(() => {
+        // Determine initial image from restaurant.image field
+        let initialImage = null;
+
+        if (restaurant?.image) {
+            if (
+                restaurant.image.startsWith('http://') ||
+                restaurant.image.startsWith('https://')
+            ) {
+                initialImage = restaurant.image;
+            } else if (restaurant.image.startsWith('uploads/')) {
+                initialImage = `${RESTAURANT_API}/${restaurant.image}`;
+            }
+        }
+
+        if (initialImage) {
+            setCardImage(initialImage);
+        } else {
+            // No image field — try fetching from the photos endpoint
+            fetch(`${RESTAURANT_API}/restaurants/${restaurant.id}/photos`)
+                .then((res) => res.json())
+                .then((photos) => {
+                    if (photos && photos.length > 0) {
+                        const path = photos[0].photo_path;
+                        if (path.startsWith('http://') || path.startsWith('https://')) {
+                            setCardImage(path);
+                        } else {
+                            setCardImage(`${RESTAURANT_API}/${path}`);
+                        }
+                    } else {
+                        setCardImage(getCuisineImage(restaurant?.cuisine, restaurant?.id));
+                    }
+                })
+                .catch(() => {
+                    setCardImage(getCuisineImage(restaurant?.cuisine, restaurant?.id));
+                });
+        }
+    }, [restaurant?.id, restaurant?.image]);
+
+    const fallbackImage = getCuisineImage(restaurant?.cuisine, restaurant?.id);
+    const imageUrl = cardImage || fallbackImage;
+
     const location = [restaurant.city, restaurant.state].filter(Boolean).join(', ');
 
     return (
@@ -131,7 +155,9 @@ const RestaurantCard = ({ restaurant }) => {
                 alt={restaurant.name}
                 onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = getCuisineImage(restaurant.cuisine, restaurant.id);
+                    if (e.currentTarget.src !== fallbackImage) {
+                        e.currentTarget.src = fallbackImage;
+                    }
                 }}
             />
 
