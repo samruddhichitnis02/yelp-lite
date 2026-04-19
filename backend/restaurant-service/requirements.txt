@@ -28,3 +28,5 @@ langchain
 openai
 tavily
 pymongo
+pydantic[email]
+langchain-openai
