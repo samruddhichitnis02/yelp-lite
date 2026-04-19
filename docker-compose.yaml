@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+
+  mongodb:
+    image: mongo:latest
+    container_name: lab2-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - yelp-network
+
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - SECRET_KEY=some_very_long_random_string_at_least_32_chars
+    volumes:
+      - user_uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - yelp-network
+
+  owner-service:
+    build:
+      context: ./backend/owner-service
+      dockerfile: Dockerfile
+    container_name: owner-service
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - SECRET_KEY=some_very_long_random_string_at_least_32_chars
+    depends_on:
+      - mongodb
+    networks:
+      - yelp-network
+
+  restaurant-service:
+    build:
+      context: ./backend/restaurant-service
+      dockerfile: Dockerfile
+    container_name: restaurant-service
+    ports:
+      - "8002:8002"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - SECRET_KEY=some_very_long_random_string_at_least_32_chars
+    volumes:
+      - restaurant_uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - yelp-network
+
+  review-service:
+    build:
+      context: ./backend/review-service
+      dockerfile: Dockerfile
+    container_name: review-service
+    ports:
+      - "8003:8003"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - SECRET_KEY=some_very_long_random_string_at_least_32_chars
+    depends_on:
+      - mongodb
+    networks:
+      - yelp-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - user-service
+      - owner-service
+      - restaurant-service
+      - review-service
+    networks:
+      - yelp-network
+
+volumes:
+  mongo_data:
+  user_uploads:
+  restaurant_uploads:
+
+networks:
+  yelp-network:
+    driver: bridge
