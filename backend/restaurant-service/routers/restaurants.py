@@ -1,3 +1,4 @@
+from kafka_producer import publish_event
 from mongodb import db as mongo_db
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +9,7 @@ from schemas.restaurant import (
     RestaurantUpdateRequest,
 )
 from typing import Optional, List
-from services.deps import get_current_user, get_current_owner
+from services.deps import get_current_user, get_current_owner, get_current_user_or_owner
 from datetime import datetime, timezone
 import re
 
@@ -286,7 +287,7 @@ def restaurant_public_dict(doc: dict) -> dict:
 @router.post("/", response_model=RestaurantPublic)
 def create_restaurant(
     payload: RestaurantCreateRequest,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_or_owner),
 ):
     restaurant_doc = {
         "owner_id": None,
@@ -310,6 +311,10 @@ def create_restaurant(
     }
 
     result = mongo_db.restaurants.insert_one(restaurant_doc)
+    publish_event("restaurant.created", {
+    "restaurant_id": str(result.inserted_id),
+    "name": payload.name,
+    })
     created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
 
     return restaurant_public_dict(created_restaurant)
@@ -412,6 +417,10 @@ def update_restaurant(
 
     if update_data:
         mongo_db.restaurants.update_one({"_id": restaurant_obj_id}, {"$set": update_data})
+        publish_event("restaurant.updated", {
+        "restaurant_id": restaurant_id,
+        "owner_id": current_owner["id"],
+        })
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
     return restaurant_public_dict(updated_restaurant)
@@ -499,7 +508,10 @@ def claim_restaurant(
         {"_id": restaurant_obj_id},
         {"$set": {"owner_id": current_owner["id"]}},
     )
-
+    publish_event("restaurant.claimed", {
+    "restaurant_id": restaurant_id,
+    "owner_id": current_owner["id"],
+    })
     return {"message": "Restaurant claimed successfully"}
 
 

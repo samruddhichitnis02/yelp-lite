@@ -30,3 +30,4 @@ tavily
 pymongo
 pydantic[email]
 langchain-openai
+kafka-python
