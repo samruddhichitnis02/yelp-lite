@@ -4,7 +4,7 @@ import { FaRobot, FaPaperPlane, FaTimes, FaUser, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
-const RESTAURANT_API = 'http://localhost:8002';
+const RESTAURANT_API = '/api/restaurants';
 
 // Lightweight markdown renderer — handles bold, numbered lists, bullet lists
 const renderMarkdown = (text) => {

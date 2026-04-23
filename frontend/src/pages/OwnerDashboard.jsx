@@ -16,8 +16,8 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const OWNER_API = 'http://localhost:8004';
-const RESTAURANT_API = 'http://localhost:8002';
+const OWNER_API = '/api/owners';
+const RESTAURANT_API = '/api/restaurants';
 
 const OwnerDashboard = () => {
     const navigate = useNavigate();

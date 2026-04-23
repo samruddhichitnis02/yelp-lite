@@ -4,7 +4,7 @@ import { FaStore, FaMapMarkerAlt, FaInfoCircle, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const RESTAURANT_API = 'http://localhost:8002';
+const RESTAURANT_API = '/api/restaurants';
 
 const US_STATES = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',

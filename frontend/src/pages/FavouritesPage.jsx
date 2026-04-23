@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { FaHeart, FaMapMarkerAlt, FaStar, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 
-const USER_API = 'http://localhost:8001';
+const USER_API = '/api/users';
 
 const CUISINE_IMAGES = {
   Italian: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80',
@@ -44,7 +44,7 @@ const FavouritesPage = () => {
     try {
       const token = localStorage.getItem('auth_token');
 
-      const res = await axios.get(`${USER_API}/favourites`, {
+      const res = await axios.get(`${USER_API}/favourites/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

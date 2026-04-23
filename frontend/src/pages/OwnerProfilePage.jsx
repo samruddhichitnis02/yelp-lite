@@ -212,7 +212,7 @@ const OwnerProfilePage = () => {
   const imageUrl = photoPreview
     ? photoPreview
     : restaurant.image
-    ? `http://localhost:8000/${restaurant.image}`
+    ? `/api/restaurants/${restaurant.image}`
     : null;
 
   if (loading) {
@@ -473,7 +473,7 @@ const OwnerProfilePage = () => {
                     <Col key={photo.id}>
                       <div className="position-relative rounded overflow-hidden" style={{ height: '150px' }}>
                         <img
-                          src={`http://localhost:8000/${photo.photo_path}`}
+                          src={`/api/restaurants/${photo.photo_path}`}
                           alt="Restaurant"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => { e.target.style.display = 'none'; }}

@@ -43,7 +43,8 @@ def add_favourite(restaurant_id: str, current_user=Depends(get_current_user)):
     return {"message": "Added to favourites"}
 
 
-@router.get("/", response_model=List[dict])
+@router.get("", response_model=List[dict])
+@router.get("/", response_model=List[dict], include_in_schema=False)
 def get_favourites(current_user=Depends(get_current_user)):
     favourites = list(mongo_db.favourites.find({"user_id": current_user["id"]}))
 

@@ -15,9 +15,9 @@ import {
 import axios from 'axios';
 import ReviewModal from '../components/ReviewModal';
 
-const USER_API = 'http://localhost:8001';
-const RESTAURANT_API = 'http://localhost:8002';
-const REVIEW_API = 'http://localhost:8003';
+const USER_API = '/api/users';
+const RESTAURANT_API = '/api/restaurants';
+const REVIEW_API = '/api/reviews';
 
 const CUISINE_IMAGES = {
     Italian: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80',

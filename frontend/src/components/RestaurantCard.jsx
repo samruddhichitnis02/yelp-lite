@@ -3,7 +3,7 @@ import { Card, Button, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { FaMapMarkerAlt, FaStar } from 'react-icons/fa';
 
-const RESTAURANT_API = 'http://localhost:8002';
+const RESTAURANT_API = '/api/restaurants';
 
 const CUISINE_IMAGES = {
     Italian: [

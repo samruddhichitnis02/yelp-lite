@@ -144,7 +144,7 @@ const ClaimRestaurantPage = () => {
                   {r.image ? (
                     <Card.Img
                       variant="top"
-                      src={`http://localhost:8000/${r.image}`}
+                      src={`/api/restaurants/${r.image}`}
                       style={{ height: '150px', objectFit: 'cover' }}
                       onError={(e) => { e.target.style.display = 'none'; }}
                     />

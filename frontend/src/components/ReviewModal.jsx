@@ -3,7 +3,7 @@ import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaStar, FaCamera } from 'react-icons/fa';
 import axios from 'axios';
 
-const REVIEW_API = 'http://localhost:8003';
+const REVIEW_API = '/api/reviews';
 
 const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReviewSubmitted }) => {
     const [rating, setRating] = useState(0);

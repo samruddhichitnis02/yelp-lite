@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-b
 import { FaUserEdit, FaCamera, FaRobot, FaSave, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 
-const USER_API = 'http://localhost:8001';
+const USER_API = '/api/users';
 
 const COUNTRIES = [
   'USA', 'Canada', 'UK', 'Australia', 'India', 'Germany', 'France',

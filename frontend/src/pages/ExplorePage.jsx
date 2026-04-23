@@ -4,7 +4,7 @@ import { FaSearch, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 import RestaurantCard from '../components/RestaurantCard';
 
-const RESTAURANT_API = 'http://localhost:8002';
+const RESTAURANT_API = '/api/restaurants';
 
 const CUISINES = [
     { label: 'Italian', emoji: '🍝' },
