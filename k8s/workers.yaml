@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-worker
+  template:
+    metadata:
+      labels:
+        app: review-worker
+    spec:
+      containers:
+        - name: review-worker
+          image: 610595224833.dkr.ecr.us-east-1.amazonaws.com/review-worker-service:latest
+          env:
+            - name: MONGO_URL
+              value: "mongodb://mongodb-service:27017"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-service:29092"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurant-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: restaurant-worker
+  template:
+    metadata:
+      labels:
+        app: restaurant-worker
+    spec:
+      containers:
+        - name: restaurant-worker
+          image: 610595224833.dkr.ecr.us-east-1.amazonaws.com/restaurant-worker-service:latest
+          env:
+            - name: MONGO_URL
+              value: "mongodb://mongodb-service:27017"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-service:29092"

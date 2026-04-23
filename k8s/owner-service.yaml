@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: owner-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: owner-service
+  template:
+    metadata:
+      labels:
+        app: owner-service
+    spec:
+      containers:
+        - name: owner-service
+          image: 610595224833.dkr.ecr.us-east-1.amazonaws.com/owner-service:latest
+          ports:
+            - containerPort: 8004
+          env:
+            - name: MONGO_URL
+              value: "mongodb://mongodb-service:27017"
+            - name: SECRET_KEY
+              value: "some_very_long_random_string_at_least_32_chars"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: owner-service
+spec:
+  selector:
+    app: owner-service
+  ports:
+    - port: 8004
+      targetPort: 8004
+  type: ClusterIP
