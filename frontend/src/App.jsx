@@ -17,30 +17,24 @@ import AddRestaurantPage from './pages/AddRestaurantPage';
 import OwnerDashboard from './pages/OwnerDashboard';
 import { Button } from 'react-bootstrap';
 import { FaRobot } from 'react-icons/fa';
-import { getAuthRole } from './services/auth';
 
 const NotFound = () => <div className="container mt-5 text-center"><h2>404 - Page Not Found</h2></div>;
 
+import { useSelector, useDispatch } from 'react-redux';
+import { selectAuthRole, syncAuth } from './store/slices/authSlice';
+
 function App() {
+  const dispatch = useDispatch();
   const [isChatOpen, setIsChatOpen] = React.useState(false);
-  const [role, setRole] = React.useState(() => getAuthRole());
+  const role = useSelector(selectAuthRole);
   const isOwner = role === 'owner';
 
-  // Keep role in sync whenever localStorage changes (login / logout in same or other tab)
+  // Keep Redux in sync whenever localStorage changes (multi-tab)
   React.useEffect(() => {
-    const syncRole = () => setRole(getAuthRole());
-
-    // Listen for storage events fired from other tabs
-    window.addEventListener('storage', syncRole);
-
-    // Poll for same-tab changes (login/logout without page reload)
-    const interval = setInterval(syncRole, 500);
-
-    return () => {
-      window.removeEventListener('storage', syncRole);
-      clearInterval(interval);
-    };
-  }, []);
+    const handleStorage = () => dispatch(syncAuth());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [dispatch]);
 
   return (
     <Router>

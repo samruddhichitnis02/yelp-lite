@@ -12,7 +12,6 @@ import {
     FaTrash,
     FaCamera,
 } from 'react-icons/fa';
-import axios from 'axios';
 import ReviewModal from '../components/ReviewModal';
 
 const USER_API = '/api/users';
@@ -61,39 +60,33 @@ const getHeroImageUrl = (restaurant, restaurantPhotos) => {
 
 // ── Edit Review Modal ──────────────────────────────────────────────────────────
 const EditReviewModal = ({ show, handleClose, review, onUpdated }) => {
+    const dispatch = useDispatch();
     const [rating, setRating] = useState(review?.rating || 0);
     const [hover, setHover] = useState(null);
     const [comment, setComment] = useState(review?.comment || '');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const loading = useSelector(state => state.review.submitting);
+    const error = useSelector(state => state.review.error);
 
     useEffect(() => {
         if (review) {
+            /* eslint-disable react-hooks/set-state-in-effect */
             setRating(review.rating || 0);
             setComment(review.comment || '');
-            setError('');
+            /* eslint-enable react-hooks/set-state-in-effect */
+            dispatch({ type: 'review/clearReviewError' });
         }
-    }, [review]);
+    }, [review, dispatch]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (rating === 0) { setError('Please select a star rating.'); return; }
-        const token = localStorage.getItem('auth_token');
-        if (!token) { setError('Please log in first.'); return; }
-        setLoading(true);
-        setError('');
+        if (rating === 0) { return; }
         try {
-            await axios.put(
-                `${REVIEW_API}/reviews/${review.id}`,
-                { rating, comment },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await dispatch(updateReview({ reviewId: review.id, rating, comment })).unwrap();
             handleClose();
             if (onUpdated) onUpdated();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'Failed to update review.');
-        } finally {
-            setLoading(false);
+            // Error is handled in redux state
+            console.error(err);
         }
     };
 
@@ -151,93 +144,70 @@ const EditReviewModal = ({ show, handleClose, review, onUpdated }) => {
 };
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchRestaurantById, selectCurrentRestaurant, selectRestaurantLoading } from '../store/slices/restaurantSlice';
+import { fetchReviewPhotos, selectReviewPhotos, deleteReview, updateReview } from '../store/slices/reviewSlice';
+import { addFavourite, selectFavouriteLoading } from '../store/slices/favouriteSlice';
+import { selectAuthRole, selectAuthUser, selectIsAuthenticated } from '../store/slices/authSlice';
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 const RestaurantDetailsPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
 
-    const [restaurant, setRestaurant] = useState(null);
-    const [restaurantPhotos, setRestaurantPhotos] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const restaurant = useSelector(selectCurrentRestaurant);
+    const loading = useSelector(selectRestaurantLoading);
+    const reviewPhotos = useSelector(selectReviewPhotos);
+    const favouriteLoading = useSelector(selectFavouriteLoading);
+    const isLoggedIn = useSelector(selectIsAuthenticated);
+    const role = useSelector(selectAuthRole);
+    const currentUser = useSelector(selectAuthUser);
+
     const [error, setError] = useState('');
     const [showReviewModal, setShowReviewModal] = useState(false);
-    const [favouriteLoading, setFavouriteLoading] = useState(false);
     const [favouriteSuccess, setFavouriteSuccess] = useState('');
     const [lightboxPhoto, setLightboxPhoto] = useState(null);
 
     const [editingReview, setEditingReview] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(null);
-    const [reviewPhotos, setReviewPhotos] = useState({}); // { reviewId: [photo, ...] }
+    const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
-    const isLoggedIn = !!localStorage.getItem('auth_token');
-    const role = localStorage.getItem('auth_role');
-    const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
-
-    const fetchRestaurant = async () => {
-        setLoading(true);
+    const fetchRestaurantData = async () => {
         try {
-            const [restaurantRes, photosRes] = await Promise.all([
-                axios.get(`${RESTAURANT_API}/restaurants/${id}`),
-                axios.get(`${RESTAURANT_API}/restaurants/${id}/photos`),
-            ]);
-            setRestaurant(restaurantRes.data);
-            setRestaurantPhotos(photosRes.data || []);
+            const result = await dispatch(fetchRestaurantById(id)).unwrap();
 
             // Fetch review photos for every review
-            const reviews = restaurantRes.data?.reviews || [];
-            if (reviews.length > 0) {
-                const token = localStorage.getItem('auth_token');
-                const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const photoMap = {};
-                await Promise.all(
-                    reviews.map(async (review) => {
-                        try {
-                            const res = await axios.get(
-                                `${REVIEW_API}/reviews/${review.id}/photos`,
-                                { headers }
-                            );
-                            photoMap[review.id] = res.data || [];
-                        } catch {
-                            photoMap[review.id] = [];
-                        }
-                    })
-                );
-                setReviewPhotos(photoMap);
-            }
+            const reviews = result?.reviews || [];
+            reviews.forEach(review => {
+                dispatch(fetchReviewPhotos(review.id));
+            });
         } catch (err) {
-            setError('Failed to load restaurant details.');
-        } finally {
-            setLoading(false);
+            setError(err || 'Failed to load restaurant details.');
         }
     };
 
     useEffect(() => {
-        fetchRestaurant();
-    }, [id]);
+        fetchRestaurantData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, dispatch]);
 
     const handleAddFavourite = async () => {
         if (!isLoggedIn) { navigate('/auth'); return; }
-        setFavouriteLoading(true);
         setFavouriteSuccess('');
         try {
-            await axios.post(
-                `${USER_API}/favourites/${id}`,
-                {},
-                { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` } }
-            );
+            await dispatch(addFavourite(id)).unwrap();
             setFavouriteSuccess('Added to favourites!');
             setTimeout(() => setFavouriteSuccess(''), 2500);
         } catch (err) {
-            setFavouriteSuccess(err?.response?.data?.detail || 'Could not add to favourites.');
+            setFavouriteSuccess(err || 'Could not add to favourites.');
             setTimeout(() => setFavouriteSuccess(''), 3000);
-        } finally {
-            setFavouriteLoading(false);
         }
     };
 
     const handleReviewSubmitted = () => {
         setShowReviewModal(false);
-        fetchRestaurant();
+        fetchRestaurantData();
     };
 
     const handleOpenEdit = (review) => {
@@ -247,16 +217,14 @@ const RestaurantDetailsPage = () => {
 
     const handleDeleteReview = async (reviewId) => {
         if (!window.confirm('Delete this review?')) return;
-        setDeleteLoading(reviewId);
+        setDeleteLoadingId(reviewId);
         try {
-            await axios.delete(`${REVIEW_API}/reviews/${reviewId}`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
-            });
-            fetchRestaurant();
+            await dispatch(deleteReview(reviewId)).unwrap();
+            fetchRestaurantData();
         } catch (err) {
-            alert(err?.response?.data?.detail || 'Failed to delete review.');
+            alert(err || 'Failed to delete review.');
         } finally {
-            setDeleteLoading(null);
+            setDeleteLoadingId(null);
         }
     };
 
@@ -276,7 +244,7 @@ const RestaurantDetailsPage = () => {
         );
     }
 
-    const heroImageUrl = getHeroImageUrl(restaurant, restaurantPhotos);
+    const heroImageUrl = getHeroImageUrl(restaurant, restaurant?.photos);
 
     return (
         <div className="restaurant-details-page">
@@ -311,10 +279,10 @@ const RestaurantDetailsPage = () => {
                             {restaurant.amenities && (
                                 <Badge bg="secondary" className="fs-6 p-2">{restaurant.amenities}</Badge>
                             )}
-                            {restaurantPhotos.length > 0 && (
+                            {restaurant.photos && restaurant.photos.length > 0 && (
                                 <Badge bg="dark" className="fs-6 p-2">
                                     <FaCamera className="me-1" />
-                                    {restaurantPhotos.length} photo{restaurantPhotos.length !== 1 ? 's' : ''}
+                                    {restaurant.photos.length} photo{restaurant.photos.length !== 1 ? 's' : ''}
                                 </Badge>
                             )}
                         </div>
@@ -361,14 +329,14 @@ const RestaurantDetailsPage = () => {
                         </div>
 
                         {/* ── Restaurant Photo Gallery ── */}
-                        {restaurantPhotos.length > 0 && (
+                        {restaurant.photos && restaurant.photos.length > 0 && (
                             <div className="mb-5">
                                 <h3 className="fw-bold mb-4">
                                     Photos{' '}
-                                    <Badge bg="secondary" pill>{restaurantPhotos.length}</Badge>
+                                    <Badge bg="secondary" pill>{restaurant.photos.length}</Badge>
                                 </h3>
                                 <Row xs={2} md={3} className="g-2">
-                                    {restaurantPhotos.map((photo) => (
+                                    {restaurant.photos.map((photo) => (
                                         <Col key={photo.id}>
                                             <div
                                                 className="rounded overflow-hidden"
@@ -438,10 +406,10 @@ const RestaurantDetailsPage = () => {
                                                             <small className="text-muted">
                                                                 {review.created_at
                                                                     ? new Date(review.created_at).toLocaleDateString('en-US', {
-                                                                          year: 'numeric',
-                                                                          month: 'long',
-                                                                          day: 'numeric',
-                                                                      })
+                                                                        year: 'numeric',
+                                                                        month: 'long',
+                                                                        day: 'numeric',
+                                                                    })
                                                                     : ''}
                                                                 {review.updated_at && review.updated_at !== review.created_at && (
                                                                     <span className="ms-1 text-muted fst-italic">(edited)</span>
@@ -477,10 +445,10 @@ const RestaurantDetailsPage = () => {
                                                                 <Button
                                                                     variant="outline-danger" size="sm"
                                                                     className="py-0 px-2" style={{ fontSize: '0.75rem' }}
-                                                                    disabled={deleteLoading === review.id}
+                                                                    disabled={deleteLoadingId === review.id}
                                                                     onClick={() => handleDeleteReview(review.id)}
                                                                 >
-                                                                    {deleteLoading === review.id
+                                                                    {deleteLoadingId === review.id
                                                                         ? <Spinner size="sm" animation="border" />
                                                                         : <><FaTrash className="me-1" />Delete</>}
                                                                 </Button>
@@ -628,7 +596,7 @@ const RestaurantDetailsPage = () => {
                     onUpdated={() => {
                         setShowEditModal(false);
                         setEditingReview(null);
-                        fetchRestaurant();
+                        fetchRestaurantData();
                     }}
                 />
             )}

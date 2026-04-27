@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { signupUser, signupOwner, loginUser, loginOwner, saveAuthData } from '../services/auth';
+import { signupUser, signupOwner, saveAuthData } from '../services/auth';
 import api from '../services/api';
 
 const SCREEN = { AUTH: 'auth', FORGOT: 'forgot', RESET: 'reset' };
@@ -13,14 +13,23 @@ const FOOD_IMAGES = [
     'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&q=80',
 ];
 
+import { useSelector, useDispatch } from 'react-redux';
+import { loginUser, loginOwner, selectAuthLoading, selectAuthError, clearError, syncAuth } from '../store/slices/authSlice';
+
 const AuthPage = () => {
+    const dispatch = useDispatch();
+    const loading = useSelector(selectAuthLoading);
+    const authError = useSelector(selectAuthError);
+
     const [searchParams] = useSearchParams();
     const [screen, setScreen] = useState(SCREEN.AUTH);
     const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'signup');
     const [userType, setUserType] = useState('user');
     const [formData, setFormData] = useState({ name: '', email: '', password: '', location: '' });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [localLoading, setLocalLoading] = useState(false); // for signup
+    const [localError, setLocalError] = useState(''); // for signup
+    const setError = setLocalError;
+    const setLoading = setLocalLoading;
     const [success, setSuccess] = useState('');
     const [forgotEmail, setForgotEmail] = useState('');
     const [resetToken, setResetToken] = useState('');
@@ -32,13 +41,15 @@ const AuthPage = () => {
 
     React.useEffect(() => {
         setIsLogin(searchParams.get('mode') !== 'signup');
-        setError('');
+        dispatch(clearError());
+        setLocalError('');
         setSuccess('');
-    }, [searchParams]);
+    }, [searchParams, dispatch]);
 
     const resetForm = () => {
         setFormData({ name: '', email: '', password: '', location: '' });
-        setError('');
+        dispatch(clearError());
+        setLocalError('');
         setSuccess('');
     };
 
@@ -59,33 +70,33 @@ const AuthPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        dispatch(clearError());
+        setLocalError('');
+
         if (isLogin) {
-            try {
-                setLoading(true);
-                const data = userType === 'owner'
-                    ? await loginOwner({ email: formData.email, password: formData.password })
-                    : await loginUser({ email: formData.email, password: formData.password });
-                saveAuthData(data);
+            const action = userType === 'owner'
+                ? await dispatch(loginOwner({ email: formData.email, password: formData.password }))
+                : await dispatch(loginUser({ email: formData.email, password: formData.password }));
+
+            if (action.meta.requestStatus === 'fulfilled') {
                 navigate(userType === 'owner' ? '/owner/dashboard' : '/profile');
-            } catch (err) {
-                setError(err?.response?.data?.detail || 'Login failed. Please try again.');
-            } finally {
-                setLoading(false);
             }
             return;
         }
+
+        // Signup flow (keeping simple for now as per plan focus)
         try {
-            setLoading(true);
+            setLocalLoading(true);
             const data = userType === 'owner'
                 ? await signupOwner({ name: formData.name, email: formData.email, password: formData.password, location: formData.location })
                 : await signupUser({ name: formData.name, email: formData.email, password: formData.password });
             saveAuthData(data);
+            dispatch(syncAuth()); // Update redux state after manual save
             navigate(userType === 'owner' ? '/owner/dashboard' : '/profile');
         } catch (err) {
-            setError(err?.response?.data?.detail || 'Signup failed. Please try again.');
+            setLocalError(err?.response?.data?.detail || 'Signup failed. Please try again.');
         } finally {
-            setLoading(false);
+            setLocalLoading(false);
         }
     };
 
@@ -241,12 +252,12 @@ const AuthPage = () => {
                     </div>
 
                     {/* ── FORGOT PASSWORD ── */}
-                    {screen === SCREEN.FORGOT && (
-                        <>
-                            <h5 style={{ fontWeight: 700, marginBottom: 4 }}>Forgot Password</h5>
-                            <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: 20 }}>Enter your {userType} email to get a reset token.</p>
-                            {error && <Alert variant="danger" className="py-2">{error}</Alert>}
-                            {success && <Alert variant="success" className="py-2">{success}</Alert>}
+                            {screen === SCREEN.FORGOT && (
+                                <>
+                                    <h5 style={{ fontWeight: 700, marginBottom: 4 }}>Forgot Password</h5>
+                                    <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: 20 }}>Enter your {userType} email to get a reset token.</p>
+                                    {localError && <Alert variant="danger" className="py-2">{localError}</Alert>}
+                                    {success && <Alert variant="success" className="py-2">{success}</Alert>}
                             <Form onSubmit={handleForgotSubmit}>
                                 <Form.Group className="mb-3">
                                     <Form.Label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#374151' }}>Email address</Form.Label>
@@ -270,12 +281,12 @@ const AuthPage = () => {
                     )}
 
                     {/* ── RESET PASSWORD ── */}
-                    {screen === SCREEN.RESET && (
-                        <>
-                            <h5 style={{ fontWeight: 700, marginBottom: 4 }}>Reset Password</h5>
-                            <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: 20 }}>Paste your reset token and choose a new password.</p>
-                            {error && <Alert variant="danger" className="py-2">{error}</Alert>}
-                            {success && <Alert variant="success" className="py-2">{success}</Alert>}
+                            {screen === SCREEN.RESET && (
+                                <>
+                                    <h5 style={{ fontWeight: 700, marginBottom: 4 }}>Reset Password</h5>
+                                    <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: 20 }}>Paste your reset token and choose a new password.</p>
+                                    {localError && <Alert variant="danger" className="py-2">{localError}</Alert>}
+                                    {success && <Alert variant="success" className="py-2">{success}</Alert>}
                             <Form onSubmit={handleResetSubmit}>
                                 <Form.Group className="mb-3">
                                     <Form.Label style={{ fontWeight: 600, fontSize: '0.88rem', color: '#374151' }}>Reset Token</Form.Label>
@@ -300,9 +311,13 @@ const AuthPage = () => {
                     )}
 
                     {/* ── MAIN AUTH ── */}
-                    {screen === SCREEN.AUTH && (
-                        <>
-                            {error && <Alert variant="danger" className="py-2">{error}</Alert>}
+                            {screen === SCREEN.AUTH && (
+                                <>
+                                    {(isLogin ? authError : localError) && (
+                                        <Alert variant="danger" className="py-2">
+                                            {isLogin ? authError : localError}
+                                        </Alert>
+                                    )}
 
                             <Form onSubmit={handleSubmit}>
                                 {!isLogin && (
@@ -333,8 +348,8 @@ const AuthPage = () => {
                                         </Button>
                                     </div>
                                 )}
-                                <button type="submit" className="submit-btn" disabled={loading}>
-                                    {loading
+                                <button type="submit" className="submit-btn" disabled={loading || localLoading}>
+                                    {loading || localLoading
                                         ? <><Spinner animation="border" size="sm" className="me-2" />{isLogin ? 'Logging In...' : 'Signing Up...'}</>
                                         : isLogin ? 'Log In' : 'Sign Up'
                                     }

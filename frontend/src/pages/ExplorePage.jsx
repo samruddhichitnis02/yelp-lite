@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Badge, Spinner } from 'react-bootstrap';
 import { FaSearch, FaTimes } from 'react-icons/fa';
-import axios from 'axios';
 import RestaurantCard from '../components/RestaurantCard';
 
 const RESTAURANT_API = '/api/restaurants';
@@ -51,13 +50,20 @@ const HERO_LABELS = [
     'Taste Something New',
 ];
 
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchRestaurants, selectRestaurants, selectRestaurantLoading } from '../store/slices/restaurantSlice';
+
 const ExplorePage = () => {
+    const dispatch = useDispatch();
+    const restaurants = useSelector(selectRestaurants);
+    const loading = useSelector(selectRestaurantLoading);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCuisines, setSelectedCuisines] = useState([]);
     const [location, setLocation] = useState('');
     const [keyword, setKeyword] = useState('');
-    const [restaurants, setRestaurants] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+    // Slide show states remain local
     const [currentSlide, setCurrentSlide] = useState(0);
     const [nextSlide, setNextSlide] = useState(1);
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -76,49 +82,27 @@ const ExplorePage = () => {
         return () => clearInterval(interval);
     }, [currentSlide]);
 
-    const fetchRestaurants = async (params = {}) => {
-        setLoading(true);
-        try {
-            const qs = new URLSearchParams();
-            if (params.name) qs.append('name', params.name);
-            if (params.location) qs.append('location', params.location);
-            if (params.keyword) qs.append('keyword', params.keyword);
-            if (params.selectedCuisines && params.selectedCuisines.length > 0) {
-                params.selectedCuisines.forEach(c => qs.append('cuisine', c));
-            }
-
-            const url = `${RESTAURANT_API}/restaurants/search?${qs.toString()}`;
-            const res = await axios.get(url);
-            setRestaurants(res.data);
-        } catch (err) {
-            console.error('Failed to fetch restaurants:', err);
-            setRestaurants([]);
-        } finally {
-            setLoading(false);
-        }
+    const handleSearch = (e) => {
+        e.preventDefault();
+        dispatch(fetchRestaurants({ name: searchTerm, selectedCuisines, location, keyword }));
     };
 
     useEffect(() => {
-        fetchRestaurants();
-    }, []);
-
-    const handleSearch = (e) => {
-        e.preventDefault();
-        fetchRestaurants({ name: searchTerm, selectedCuisines, location, keyword });
-    };
+        dispatch(fetchRestaurants());
+    }, [dispatch]);
 
     const handleCuisineClick = (label) => {
         const updated = selectedCuisines.includes(label)
             ? selectedCuisines.filter(c => c !== label)
             : [...selectedCuisines, label];
         setSelectedCuisines(updated);
-        fetchRestaurants({ name: searchTerm, selectedCuisines: updated, location, keyword });
+        dispatch(fetchRestaurants({ name: searchTerm, selectedCuisines: updated, location, keyword }));
     };
 
     const handleKeywordClick = (label) => {
         const updated = keyword === label ? '' : label;
         setKeyword(updated);
-        fetchRestaurants({ name: searchTerm, selectedCuisines, location, keyword: updated });
+        dispatch(fetchRestaurants({ name: searchTerm, selectedCuisines, location, keyword: updated }));
     };
 
     const handleClear = () => {
@@ -126,8 +110,9 @@ const ExplorePage = () => {
         setSelectedCuisines([]);
         setLocation('');
         setKeyword('');
-        fetchRestaurants();
+        dispatch(fetchRestaurants());
     };
+
 
     const hasFilters = searchTerm || selectedCuisines.length > 0 || location || keyword;
     const visibleCuisines = showAllCuisines ? CUISINES : CUISINES.slice(0, 8);

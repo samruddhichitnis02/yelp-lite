@@ -1,16 +1,22 @@
 import React, { useState, useRef } from 'react';
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaStar, FaCamera } from 'react-icons/fa';
-import axios from 'axios';
+
 
 const REVIEW_API = '/api/reviews';
 
+import { useSelector, useDispatch } from 'react-redux';
+import { submitReview, uploadReviewPhoto, clearReviewError, selectReviewSubmitting, selectReviewError } from '../store/slices/reviewSlice';
+
 const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReviewSubmitted }) => {
+    const dispatch = useDispatch();
+    const loading = useSelector(selectReviewSubmitting);
+    const apiError = useSelector(selectReviewError);
+
     const [rating, setRating] = useState(0);
     const [hover, setHover] = useState(null);
     const [comment, setComment] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [localError, setLocalError] = useState('');
     const [photos, setPhotos] = useState([]);
     const [photoPreviews, setPhotoPreviews] = useState([]);
     const photoInputRef = useRef(null);
@@ -21,7 +27,8 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
         setComment('');
         setPhotos([]);
         setPhotoPreviews([]);
-        setError('');
+        setLocalError('');
+        dispatch(clearReviewError());
     };
 
     const handlePhotoSelect = (e) => {
@@ -39,51 +46,19 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (rating === 0) {
-            setError('Please select a star rating.');
+            setLocalError('Please select a star rating.');
             return;
         }
-
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            setError('Please log in first.');
-            return;
-        }
-
-        setError('');
-        setLoading(true);
+        setLocalError('');
+        dispatch(clearReviewError());
 
         try {
-            const reviewRes = await axios.post(
-                `${REVIEW_API}/reviews/`,
-                {
-                    restaurant_id: restaurantId,
-                    rating,
-                    comment,
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            const reviewRes = await dispatch(submitReview({ restaurantId, rating, comment })).unwrap();
 
             if (photos.length > 0) {
                 for (const photo of photos) {
-                    const fd = new FormData();
-                    fd.append('file', photo);
-
-                    await axios.post(
-                        `${REVIEW_API}/reviews/${reviewRes.data.id}/photos`,
-                        fd,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                'Content-Type': 'multipart/form-data',
-                            },
-                        }
-                    );
+                    await dispatch(uploadReviewPhoto({ reviewId: reviewRes.id, file: photo })).unwrap();
                 }
             }
 
@@ -91,9 +66,8 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
             handleClose();
             if (onReviewSubmitted) onReviewSubmitted();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'Failed to submit review. Please try again.');
-        } finally {
-            setLoading(false);
+            console.error(err);
+            // Error is handled in redux state (selectReviewError)
         }
     };
 
@@ -109,7 +83,7 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
             </Modal.Header>
 
             <Modal.Body>
-                {error && <Alert variant="danger">{error}</Alert>}
+                {(apiError || localError) && <Alert variant="danger">{apiError || localError}</Alert>}
 
                 <Form onSubmit={handleSubmit}>
                     <div className="text-center mb-4">

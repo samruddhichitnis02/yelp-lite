@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Spinner, Alert, Badge, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { FaHeart, FaMapMarkerAlt, FaStar, FaTrash } from 'react-icons/fa';
-import axios from 'axios';
 
 const USER_API = '/api/users';
 
@@ -35,45 +34,24 @@ const getImage = (r) => {
   return CUISINE_IMAGES[r.cuisine] || FALLBACK;
 };
 
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchFavourites, removeFavourite, selectFavourites, selectFavouriteLoading } from '../store/slices/favouriteSlice';
+
 const FavouritesPage = () => {
-  const [favourites, setFavourites] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const favourites = useSelector(selectFavourites);
+  const loading = useSelector(selectFavouriteLoading);
   const [error, setError] = useState('');
 
-  const fetchFavourites = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-
-      const res = await axios.get(`${USER_API}/favourites/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // ✅ DIRECT USE — NO EXTRA FETCH
-      setFavourites(res.data);
-    } catch (err) {
-      setError('Failed to load favourites');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchFavourites();
-  }, []);
+    dispatch(fetchFavourites());
+  }, [dispatch]);
 
   const handleRemove = async (restaurantId) => {
     try {
-      const token = localStorage.getItem('auth_token');
-
-      await axios.delete(`${USER_API}/favourites/${restaurantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      setFavourites((prev) =>
-        prev.filter((r) => r.id !== restaurantId)
-      );
+      await dispatch(removeFavourite(restaurantId)).unwrap();
     } catch (err) {
-      console.error(err);
+      setError(err || 'Failed to remove favourite');
     }
   };
 
