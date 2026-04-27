@@ -56,7 +56,7 @@ def user_signup(payload: UserSignupRequest):
         "country": None,
         "languages": None,
         "gender": None,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.utcnow()
     }
 
     result = mongo_db.users.insert_one(user_doc)
