@@ -145,7 +145,7 @@ const HistoryPage = () => {
         try {
             const token = localStorage.getItem('auth_token');
 
-            await axios.delete(`${REVIEW_API}/reviews/${reviewId}`, {
+            await axios.delete(`${REVIEW_API}/${reviewId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },

@@ -471,7 +471,7 @@ const RestaurantDetailsPage = () => {
                                                         {reviewPhotos[review.id].map((photo, idx) => (
                                                             <img
                                                                 key={idx}
-                                                                src={`${REVIEW_API}/${photo.photo_path}`}
+                                                                src={`/api/reviews/${photo.photo_path}`}
                                                                 alt="review"
                                                                 style={{
                                                                     width: '90px',
@@ -481,7 +481,7 @@ const RestaurantDetailsPage = () => {
                                                                     cursor: 'pointer',
                                                                     border: '2px solid #f1f5f9',
                                                                 }}
-                                                                onClick={() => setLightboxPhoto(`${REVIEW_API}/${photo.photo_path}`)}
+                                                                onClick={() => setLightboxPhoto(`/api/reviews/${photo.photo_path}`)}
                                                                 onError={(e) => {
                                                                     e.currentTarget.onerror = null;
                                                                     e.currentTarget.style.display = 'none';

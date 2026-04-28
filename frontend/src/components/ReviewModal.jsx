@@ -2,9 +2,6 @@ import React, { useState, useRef } from 'react';
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { FaStar, FaCamera } from 'react-icons/fa';
 
-
-const REVIEW_API = '/api/reviews';
-
 import { useSelector, useDispatch } from 'react-redux';
 import { submitReview, uploadReviewPhoto, clearReviewError, selectReviewSubmitting, selectReviewError } from '../store/slices/reviewSlice';
 
@@ -55,10 +52,11 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
 
         try {
             const reviewRes = await dispatch(submitReview({ restaurantId, rating, comment })).unwrap();
+            const reviewId = reviewRes.id || reviewRes._id;
 
-            if (photos.length > 0) {
+            if (photos.length > 0 && reviewId) {
                 for (const photo of photos) {
-                    await dispatch(uploadReviewPhoto({ reviewId: reviewRes.id, file: photo })).unwrap();
+                    await dispatch(uploadReviewPhoto({ reviewId, file: photo })).unwrap();
                 }
             }
 
@@ -67,7 +65,6 @@ const ReviewModal = ({ show, handleClose, restaurantName, restaurantId, onReview
             if (onReviewSubmitted) onReviewSubmitted();
         } catch (err) {
             console.error(err);
-            // Error is handled in redux state (selectReviewError)
         }
     };
 

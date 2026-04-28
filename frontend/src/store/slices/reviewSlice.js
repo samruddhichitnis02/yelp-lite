@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const REVIEW_API = '/api';
+const REVIEW_API = '/api/reviews';
 
 export const fetchReviewPhotos = createAsyncThunk(
     'reviews/fetchPhotos',
@@ -9,7 +9,7 @@ export const fetchReviewPhotos = createAsyncThunk(
         try {
             const token = localStorage.getItem('auth_token');
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const res = await axios.get(`${REVIEW_API}/reviews/${reviewId}/photos`, { headers });
+            const res = await axios.get(`${REVIEW_API}/${reviewId}/photos`, { headers });
             return { reviewId, photos: res.data || [] };
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || 'Failed to fetch review photos');
@@ -23,7 +23,7 @@ export const submitReview = createAsyncThunk(
         try {
             const token = localStorage.getItem('auth_token');
             const res = await axios.post(
-                `${REVIEW_API}/reviews`,
+                `${REVIEW_API}/`,
                 { restaurant_id: restaurantId, rating, comment },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -40,7 +40,7 @@ export const updateReview = createAsyncThunk(
         try {
             const token = localStorage.getItem('auth_token');
             const res = await axios.put(
-                `${REVIEW_API}/reviews/${reviewId}`,
+                `${REVIEW_API}/${reviewId}`,
                 { rating, comment },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -56,7 +56,7 @@ export const deleteReview = createAsyncThunk(
     async (reviewId, { rejectWithValue }) => {
         try {
             const token = localStorage.getItem('auth_token');
-            await axios.delete(`${REVIEW_API}/reviews/${reviewId}`, {
+            await axios.delete(`${REVIEW_API}/${reviewId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             return reviewId;
@@ -74,7 +74,7 @@ export const uploadReviewPhoto = createAsyncThunk(
             const fd = new FormData();
             fd.append('file', file);
             const res = await axios.post(
-                `${REVIEW_API}/reviews/${reviewId}/photos`,
+                `${REVIEW_API}/${reviewId}/photos`,
                 fd,
                 {
                     headers: {
