@@ -1,8 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-
-const REVIEW_API = '/api/reviews';
+const REVIEW_API = '/api';
 
 export const fetchReviewPhotos = createAsyncThunk(
     'reviews/fetchPhotos',
@@ -92,7 +91,7 @@ export const uploadReviewPhoto = createAsyncThunk(
 );
 
 const initialState = {
-    photos: {}, // { reviewId: [photo, ...] }
+    photos: {},
     loading: false,
     submitting: false,
     error: null,
@@ -108,11 +107,9 @@ const reviewSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // Fetch Photos
             .addCase(fetchReviewPhotos.fulfilled, (state, action) => {
                 state.photos[action.payload.reviewId] = action.payload.photos;
             })
-            // Submit Review
             .addCase(submitReview.pending, (state) => {
                 state.submitting = true;
                 state.error = null;
@@ -124,7 +121,6 @@ const reviewSlice = createSlice({
                 state.submitting = false;
                 state.error = action.payload;
             })
-            // Update
             .addCase(updateReview.pending, (state) => {
                 state.submitting = true;
             })
@@ -135,7 +131,6 @@ const reviewSlice = createSlice({
                 state.submitting = false;
                 state.error = action.payload;
             })
-            // Delete
             .addCase(deleteReview.pending, (state) => {
                 state.loading = true;
             })
@@ -146,7 +141,6 @@ const reviewSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload;
             })
-            // Upload Photo
             .addCase(uploadReviewPhoto.fulfilled, (state, action) => {
                 if (!state.photos[action.payload.reviewId]) {
                     state.photos[action.payload.reviewId] = [];
