@@ -18,10 +18,14 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import { Button } from 'react-bootstrap';
 import { FaRobot } from 'react-icons/fa';
 
+/* The NotFound component is a simple functional component that displays a 404 error message when a user navigates to a route that does not exist in the application. It is used as a fallback route in the React Router configuration to handle undefined routes gracefully. The component is styled with Bootstrap classes to center the message on the page and provide some margin at the top for better visual presentation. */
+
 const NotFound = () => <div className="container mt-5 text-center"><h2>404 - Page Not Found</h2></div>;
 
 import { useSelector, useDispatch } from 'react-redux';
 import { selectAuthRole, syncAuth } from './store/slices/authSlice';
+
+// The App component is the root component of the React application. It sets up the routing for the application using React Router and conditionally renders an AI Assistant chat button based on the user's role. It also includes a listener to keep the Redux store in sync with localStorage changes, which is important for handling authentication state across multiple tabs.
 
 function App() {
   const dispatch = useDispatch();
