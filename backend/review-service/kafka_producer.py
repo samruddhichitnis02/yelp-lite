@@ -8,7 +8,8 @@ KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
 _producer = None
  
-#
+# Singleton Kafka producer instance with error handling for connection issues
+
 def get_producer():
     global _producer
     if _producer is None:
