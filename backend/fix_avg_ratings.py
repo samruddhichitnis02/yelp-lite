@@ -1,5 +1,7 @@
 """
-Run 
+Run this once from your backend folder to fix avg_rating for all restaurants.
+It recalculates each restaurant's rating based on actual reviews in MongoDB.
+Usage: python fix_avg_ratings.py
 """
 
 from mongodb import db
