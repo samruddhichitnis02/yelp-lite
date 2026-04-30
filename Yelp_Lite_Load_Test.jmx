@@ -12,21 +12,18 @@
             <stringProp name="Argument.value">100</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-        
 
           <elementProp name="USER_HOST" elementType="Argument">
             <stringProp name="Argument.name">USER_HOST</stringProp>
             <stringProp name="Argument.value">localhost</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-        
 
           <elementProp name="USER_PORT" elementType="Argument">
             <stringProp name="Argument.name">USER_PORT</stringProp>
             <stringProp name="Argument.value">8001</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-        
 
           <elementProp name="RESTAURANT_PORT" elementType="Argument">
             <stringProp name="Argument.name">RESTAURANT_PORT</stringProp>
@@ -34,13 +31,11 @@
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         
-
           <elementProp name="REVIEW_PORT" elementType="Argument">
             <stringProp name="Argument.name">REVIEW_PORT</stringProp>
             <stringProp name="Argument.value">8003</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
         
-
           </elementProp>
         </collectionProp>
       </elementProp>
@@ -49,7 +44,6 @@
     </TestPlan>
     <hashTree>
       
-
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Simulated Users">
         <intProp name="ThreadGroup.ramp_time">10</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
