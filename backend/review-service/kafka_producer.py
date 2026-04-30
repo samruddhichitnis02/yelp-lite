@@ -2,10 +2,13 @@ import json
 import os
 from kafka import KafkaProducer
 
+# Load configuration from environment variables with defaults
+
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
 _producer = None
-
+ 
+#
 def get_producer():
     global _producer
     if _producer is None:
@@ -19,6 +22,7 @@ def get_producer():
             return None
     return _producer
 
+# Publish an event to a Kafka topic with error handling for connection issues
 
 def publish_event(topic: str, data: dict):
     producer = get_producer()
