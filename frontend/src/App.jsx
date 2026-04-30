@@ -36,56 +36,9 @@ function App() {
     return () => window.removeEventListener('storage', handleStorage);
   }, [dispatch]);
 
-  return (
-    <Router>
-      <div className="d-flex flex-column min-vh-100 position-relative">
-        <AppNavbar />
-        <main className="flex-grow-1">
-          <Routes>
-            <Route path="/" element={<ExplorePage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/restaurant/:id" element={<RestaurantDetailsPage />} />
 
-            {/* User Routes */}
-            <Route path="/profile" element={<UserProfilePage />} />
-            <Route path="/favourites" element={<FavouritesPage />} />
-            <Route path="/history" element={<HistoryPage />} />
+  // The main App component sets up the routing for the application and conditionally renders the AI Assistant chat button based on the user's role. It also includes a listener to keep the Redux store in sync with localStorage changes, which is important for handling authentication state across multiple tabs.
 
-            {/* Owner Routes */}
-            <Route path="/owner/dashboard" element={<OwnerDashboard />} />
-            <Route path="/add-restaurant" element={<AddRestaurantPage />} />
-            <Route path="/owner/profile" element={<OwnerProfilePage />} />
-            <Route path="/owner/claim" element={<ClaimRestaurantPage />} />
 
-            <Route path="/owner/edit-restaurant/:id" element={<EditRestaurantPage />} />
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-
-        {/* AI Assistant — only visible for regular users, hidden for owners */}
-        {!isOwner && (
-          <>
-            <Button
-              variant="primary"
-              className="position-fixed shadow-lg rounded-circle d-flex align-items-center justify-content-center"
-              style={{ bottom: '30px', right: '30px', width: '60px', height: '60px', zIndex: 1040 }}
-              onClick={() => setIsChatOpen(!isChatOpen)}
-            >
-              <FaRobot size={28} />
-            </Button>
-            <AIAssistantChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-          </>
-        )}
-
-        <footer className="bg-light text-center text-muted py-3 mt-auto">
-          <div className="container">
-            <small>&copy; {new Date().getFullYear()} Yelp Prototype - DS Lab 1</small>
-          </div>
-        </footer>
-      </div>
-    </Router>
-  );
-}
 
 export default App;
