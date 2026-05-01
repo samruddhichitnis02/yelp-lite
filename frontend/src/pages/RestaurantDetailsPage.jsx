@@ -147,7 +147,7 @@ const EditReviewModal = ({ show, handleClose, review, onUpdated }) => {
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchRestaurantById, selectCurrentRestaurant, selectRestaurantLoading } from '../store/slices/restaurantSlice';
 import { fetchReviewPhotos, selectReviewPhotos, deleteReview, updateReview } from '../store/slices/reviewSlice';
-import { addFavourite, selectFavouriteLoading } from '../store/slices/favouriteSlice';
+import { addFavourite, fetchFavourites, selectFavouriteLoading } from '../store/slices/favouriteSlice';
 import { selectAuthRole, selectAuthUser, selectIsAuthenticated } from '../store/slices/authSlice';
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
@@ -197,6 +197,7 @@ const RestaurantDetailsPage = () => {
         setFavouriteSuccess('');
         try {
             await dispatch(addFavourite(id)).unwrap();
+            dispatch(fetchFavourites()); // sync favourites state immediately
             setFavouriteSuccess('Added to favourites!');
             setTimeout(() => setFavouriteSuccess(''), 2500);
         } catch (err) {

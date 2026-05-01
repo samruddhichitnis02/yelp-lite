@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-
 const USER_API = '/api/users';
 
 export const fetchFavourites = createAsyncThunk(
@@ -21,7 +20,7 @@ export const fetchFavourites = createAsyncThunk(
 
 export const addFavourite = createAsyncThunk(
     'favourites/add',
-    async (restaurantId, { rejectWithValue }) => {
+    async (restaurantId, { rejectWithValue, dispatch }) => {
         try {
             const token = localStorage.getItem('auth_token');
             const res = await axios.post(
@@ -29,6 +28,8 @@ export const addFavourite = createAsyncThunk(
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
+            // Re-fetch the full list so the added restaurant appears immediately
+            dispatch(fetchFavourites());
             return res.data;
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || 'Failed to add favourite');
@@ -74,11 +75,14 @@ const favouriteSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload;
             })
+            // Filter by item.id — the API returns restaurant objects with `id`,
+            // not `restaurant_id`, so the original filter never matched anything.
             .addCase(removeFavourite.fulfilled, (state, action) => {
-                state.items = state.items.filter(item => item.restaurant_id !== action.payload);
+                state.items = state.items.filter(item => item.id !== action.payload);
             })
-            .addCase(addFavourite.fulfilled, (state, action) => {
-                state.items.push(action.payload);
+            .addCase(addFavourite.fulfilled, () => {
+                // fetchFavourites() is dispatched inside the thunk above,
+                // state will sync when that resolves.
             });
     },
 });

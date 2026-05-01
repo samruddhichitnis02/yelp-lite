@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Spinner, Alert, Badge, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { FaHeart, FaMapMarkerAlt, FaStar, FaTrash } from 'react-icons/fa';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchFavourites, removeFavourite, selectFavourites, selectFavouriteLoading } from '../store/slices/favouriteSlice';
 
 const USER_API = '/api/users';
 
@@ -19,23 +21,13 @@ const CUISINE_IMAGES = {
   Vegan: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80',
 };
 
-const FALLBACK =
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+const FALLBACK = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
 
 const getImage = (r) => {
-  if (!r.image) return CUISINE_IMAGES[r.cuisine] || FALLBACK;
-
+  if (!r?.image) return CUISINE_IMAGES[r?.cuisine] || FALLBACK;
   if (r.image.startsWith('http')) return r.image;
-
-  if (r.image.startsWith('uploads/')) {
-    return CUISINE_IMAGES[r.cuisine] || FALLBACK;
-  }
-
-  return CUISINE_IMAGES[r.cuisine] || FALLBACK;
+  return CUISINE_IMAGES[r?.cuisine] || FALLBACK;
 };
-
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchFavourites, removeFavourite, selectFavourites, selectFavouriteLoading } from '../store/slices/favouriteSlice';
 
 const FavouritesPage = () => {
   const dispatch = useDispatch();
@@ -55,7 +47,7 @@ const FavouritesPage = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-5"><Spinner /></div>;
+  if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
 
   if (error) return (
     <Container className="py-5">
@@ -76,9 +68,18 @@ const FavouritesPage = () => {
         <span className="text-muted">{favourites.length} saved</span>
       </div>
 
+      {favourites.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <FaHeart size={48} className="mb-3 opacity-25" />
+          <h5>No favourites yet</h5>
+          <p>Save restaurants you love and they will appear here.</p>
+        </div>
+      )}
+
       <Row>
         {favourites.map((r) => {
-          const location = [r.city, r.state].filter(Boolean).join(', ');
+          const location = [r?.city, r?.state].filter(Boolean).join(', ');
+          const rating = r?.avg_rating != null ? Number(r.avg_rating) : null;
 
           return (
             <Col key={r.id} md={4} className="mb-4">
@@ -88,34 +89,35 @@ const FavouritesPage = () => {
                   variant="top"
                   src={getImage(r)}
                   style={{ height: '180px', objectFit: 'cover' }}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK; }}
                 />
 
                 <Card.Body className="d-flex flex-column">
 
                   <div className="d-flex justify-content-between">
-                    <Card.Title className="fw-bold">{r.name}</Card.Title>
+                    <Card.Title className="fw-bold">{r?.name}</Card.Title>
                     <Badge bg="danger">
                       <FaStar className="me-1" />
-                      {r.avg_rating > 0 ? r.avg_rating.toFixed(1) : 'New'}
+                      {rating > 0 ? rating.toFixed(1) : 'New'}
                     </Badge>
                   </div>
 
                   <Card.Text className="text-muted">
                     <FaMapMarkerAlt className="me-1 text-danger" />
-                    {location}
+                    {location || 'Location unavailable'}
                   </Card.Text>
 
                   <div className="mb-2">
                     <Badge bg="light" text="dark" className="me-2">
-                      {r.cuisine}
+                      {r?.cuisine || '—'}
                     </Badge>
                     <Badge bg="light" text="dark">
-                      {r.price_range}
+                      {r?.price_range || '—'}
                     </Badge>
                   </div>
 
                   <Card.Text className="small flex-grow-1">
-                    {r.description}
+                    {r?.description}
                   </Card.Text>
 
                   <div className="d-flex gap-2 mt-auto">
