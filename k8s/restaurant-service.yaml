@@ -24,6 +24,9 @@ spec:
               value: "some_very_long_random_string_at_least_32_chars"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka-service:29092"
+          envFrom:
+            - secretRef:
+                name: aws-credentials
 ---
 apiVersion: v1
 kind: Service

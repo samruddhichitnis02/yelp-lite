@@ -2,7 +2,7 @@ import os
 from typing import List, Dict, Any
 
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+from langchain_aws import ChatBedrock
 from tavily import TavilyClient
 
 from mongodb import db as mongo_db
@@ -11,10 +11,13 @@ load_dotenv()
 
 
 def get_llm():
-    return ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.4,
-        api_key=os.getenv("OPENAI_API_KEY"),
+    return ChatBedrock(
+        model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        model_kwargs={
+            "temperature": 0.4,
+            "max_tokens": 1024,
+        },
     )
 
 
