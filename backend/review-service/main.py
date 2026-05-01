@@ -3,8 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
+# Import routers for reviews and review photos
+
 from routers.reviews import router as reviews_router
 from routers.review_photos import router as review_photos_router
+
+# Initialize FastAPI app with title and version, and disable automatic redirect for trailing slashes
 
 app = FastAPI(title="Review Service", version="1.0.0", redirect_slashes=False)
 

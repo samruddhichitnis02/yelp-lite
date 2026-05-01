@@ -15,7 +15,10 @@ from routers.review_photos import router as review_photos_router
 
 
 
+
 # Initialize the FastAPI application
+#  The title and version are optional metadata that can be used for documentation purposes.
+# The app will automatically generate API docs at http://localhost:8000/docs based on the included routers and their endpoints..
 app = FastAPI(title="Yelp Lite API", version="1.0.0")
 app.include_router(auth_router)
 app.include_router(me_router)
@@ -32,7 +35,10 @@ app.include_router(review_photos_router)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
-# Allow the React frontend to communicate with this backend
+# Allow the React frontend to communicate with this backend 
+# by enabling CORS (Cross-Origin Resource Sharing) for all origins, methods, and headers.
+
+  
 app.add_middleware(
     CORSMiddleware,
     # Allow requests from the React development server
@@ -43,7 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Root endpoint to check if the server is running
+
+# Root endpoint to check if the server is running.
+#  You can test this by visiting http://localhost:8000/ in your browser or using curl.
+# It should return a simple JSON message confirming that the API is up and running.
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Yelp Lite API"}

@@ -18,10 +18,14 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import { Button } from 'react-bootstrap';
 import { FaRobot } from 'react-icons/fa';
 
+/* The NotFound component is a simple functional component that displays a 404 error message when a user navigates to a route that does not exist in the application. It is used as a fallback route in the React Router configuration to handle undefined routes gracefully. The component is styled with Bootstrap classes to center the message on the page and provide some margin at the top for better visual presentation. */
+
 const NotFound = () => <div className="container mt-5 text-center"><h2>404 - Page Not Found</h2></div>;
 
 import { useSelector, useDispatch } from 'react-redux';
 import { selectAuthRole, syncAuth } from './store/slices/authSlice';
+
+// The App component is the root component of the React application. It sets up the routing for the application using React Router and conditionally renders an AI Assistant chat button based on the user's role. It also includes a listener to keep the Redux store in sync with localStorage changes, which is important for handling authentication state across multiple tabs.
 
 function App() {
   const dispatch = useDispatch();
@@ -35,6 +39,11 @@ function App() {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, [dispatch]);
+
+
+  // The main App component sets up the routing for the application and conditionally renders the AI Assistant chat button based on the user's role. It also includes a listener to keep the Redux store in sync with localStorage changes, which is important for handling authentication state across multiple tabs.
+
+  // The Routes component defines the different routes for the application, including public routes (ExplorePage, AuthPage, RestaurantDetailsPage) and protected routes for regular users (UserProfilePage, FavouritesPage, HistoryPage) and restaurant owners (OwnerDashboard, AddRestaurantPage, OwnerProfilePage, ClaimRestaurantPage, EditRestaurantPage). The NotFound component is rendered for any undefined routes.
 
   return (
     <Router>
@@ -87,5 +96,9 @@ function App() {
     </Router>
   );
 }
+
+
+// The App component is the root component of the React application. It uses React Router to define the different routes and pages of the application, including public pages (ExplorePage, AuthPage, RestaurantDetailsPage) and protected pages for regular users (UserProfilePage, FavouritesPage, HistoryPage) and restaurant owners (OwnerDashboard, AddRestaurantPage, OwnerProfilePage, ClaimRestaurantPage, EditRestaurantPage). It also conditionally renders an AI Assistant chat button for regular users and includes a footer with copyright information.
+
 
 export default App;

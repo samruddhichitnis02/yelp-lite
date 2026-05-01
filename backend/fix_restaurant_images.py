@@ -1,7 +1,13 @@
 """
+
 Run this script once from your backend folder to fix all restaurant image URLs in MongoDB.
-Usage: python fix_restaurant_images.py
+Usage: python fix_restaurant_images.py  
+This script updates any restaurant with a dead source.unsplash.com image URL to a new working URL based on its cuisine type.
+ 
 """
+
+
+
 
 from mongodb import db
 
