@@ -1,4 +1,4 @@
-# Yelp Lite — Restaurant Discovery Platform (Redux Edition)
+# Yelp Lite — Restaurant Discovery Platform 
 
 A full-stack, microservices-based Yelp-style restaurant discovery and review platform. Built with **React 19 + Redux Toolkit**, **Python FastAPI**, **MongoDB**, and **Apache Kafka**. Supports two user personas — **Regular Users** and **Restaurant Owners** — with an integrated AI Assistant chatbot for personalized restaurant recommendations.
 
