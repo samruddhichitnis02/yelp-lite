@@ -124,15 +124,17 @@ const UserProfilePage = () => {
       const token = localStorage.getItem('auth_token');
       const formData = new FormData();
 
-      formData.append('name', userDetails.name || '');
-      formData.append('phone', userDetails.phone || '');
-      formData.append('about', userDetails.about || '');
-      formData.append('city', userDetails.city || '');
-      formData.append('state', userDetails.state || '');
-      formData.append('country', userDetails.country || '');
-      formData.append('languages', userDetails.languages || '');
-      formData.append('gender', userDetails.gender || '');
-      formData.append('location', userDetails.location || '');
+      // Only append fields that have a non-empty value so the backend
+      // doesn't overwrite existing data with empty strings.
+      if (userDetails.name)      formData.append('name',      userDetails.name.trim());
+      if (userDetails.phone)     formData.append('phone',     userDetails.phone.trim());
+      if (userDetails.about)     formData.append('about',     userDetails.about.trim());
+      if (userDetails.city)      formData.append('city',      userDetails.city.trim());
+      if (userDetails.state)     formData.append('state',     userDetails.state.trim());
+      if (userDetails.country)   formData.append('country',   userDetails.country.trim());
+      if (userDetails.languages) formData.append('languages', userDetails.languages.trim());
+      if (userDetails.gender)    formData.append('gender',    userDetails.gender.trim());
+      if (userDetails.location)  formData.append('location',  userDetails.location.trim());
 
       if (profilePicFile) {
         formData.append('profile_pic', profilePicFile);

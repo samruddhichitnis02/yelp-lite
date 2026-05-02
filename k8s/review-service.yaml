@@ -1,9 +1,47 @@
+# Step 1: EFS StorageClass
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+---
+# Step 2: PersistentVolume pointing to your EFS
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: review-uploads-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-0722f8f533aa10795
+---
+# Step 3: PVC using EFS (ReadWriteMany - all 8 pods on both nodes can share this)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: review-uploads-efs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Step 4: Deployment with 8 replicas using EFS PVC
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: review-service
 spec:
-  replicas: 1
+  replicas: 8
   selector:
     matchLabels:
       app: review-service
@@ -24,7 +62,15 @@ spec:
               value: "some_very_long_random_string_at_least_32_chars"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka-service:29092"
+          volumeMounts:
+            - name: review-uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: review-uploads
+          persistentVolumeClaim:
+            claimName: review-uploads-efs-pvc
 ---
+# Step 5: Service (unchanged)
 apiVersion: v1
 kind: Service
 metadata:

@@ -46,7 +46,7 @@ def upload_review_photo(
 
     photo_doc = {
         "review_id": review_id,
-        "photo_path": f"uploads/{filename}",
+        "photo_path": f"/uploads/{filename}",  # Fixed: leading slash makes it a proper URL path
         "user_id": current_user["id"],
         "created_at": datetime.utcnow(),
     }
@@ -69,11 +69,15 @@ def get_review_photos(review_id: str):
 
     result = []
     for p in photos:
+        photo_path = p.get("photo_path", "")
+        # Fix any old records that were stored without leading slash
+        if photo_path and not photo_path.startswith("/"):
+            photo_path = f"/{photo_path}"
         result.append(
             {
                 "id": str(p["_id"]),
                 "review_id": p.get("review_id"),
-                "photo_path": p.get("photo_path"),
+                "photo_path": photo_path,
                 "created_at": p.get("created_at"),
             }
         )
@@ -103,9 +107,11 @@ def delete_review_photo(
         raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
 
     try:
-        photo_path = photo.get("photo_path")
-        if photo_path and os.path.exists(photo_path):
-            os.remove(photo_path)
+        photo_path = photo.get("photo_path", "")
+        # Strip leading slash for os.path check
+        local_path = photo_path.lstrip("/")
+        if local_path and os.path.exists(local_path):
+            os.remove(local_path)
     except Exception:
         pass
 

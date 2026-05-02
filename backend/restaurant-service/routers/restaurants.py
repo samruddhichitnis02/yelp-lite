@@ -18,131 +18,38 @@ router = APIRouter(prefix="/restaurants", tags=["restaurants"])
 
 
 POSITIVE_WORDS = {
-    "good",
-    "great",
-    "amazing",
-    "awesome",
-    "excellent",
-    "love",
-    "loved",
-    "friendly",
-    "clean",
-    "fresh",
-    "delicious",
-    "perfect",
-    "best",
-    "nice",
-    "wonderful",
-    "fantastic",
-    "fast",
-    "tasty",
-    "pleasant",
-    "favorite",
-    "enjoyed",
-    "recommend",
-    "recommended",
-    "beautiful",
-    "attentive",
-    "yummy",
-    "superb",
+    "good", "great", "amazing", "awesome", "excellent", "love", "loved",
+    "friendly", "clean", "fresh", "delicious", "perfect", "best", "nice",
+    "wonderful", "fantastic", "fast", "tasty", "pleasant", "favorite",
+    "enjoyed", "recommend", "recommended", "beautiful", "attentive", "yummy", "superb",
 }
 
 NEGATIVE_WORDS = {
-    "bad",
-    "terrible",
-    "awful",
-    "worst",
-    "slow",
-    "dirty",
-    "cold",
-    "rude",
-    "expensive",
-    "bland",
-    "disappointing",
-    "poor",
-    "hate",
-    "horrible",
-    "late",
-    "noisy",
-    "average",
-    "overpriced",
-    "mediocre",
-    "unpleasant",
-    "boring",
-    "disgusting",
-    "gross",
-    "tasteless",
-    "stale",
-    "unfriendly",
+    "bad", "terrible", "awful", "worst", "slow", "dirty", "cold", "rude",
+    "expensive", "bland", "disappointing", "poor", "hate", "horrible", "late",
+    "noisy", "average", "overpriced", "mediocre", "unpleasant", "boring",
+    "disgusting", "gross", "tasteless", "stale", "unfriendly",
 }
 
 NEGATION_WORDS = {
-    "not",
-    "no",
-    "never",
-    "none",
-    "didnt",
-    "don't",
-    "dont",
-    "isnt",
-    "isn't",
-    "wasnt",
-    "wasn't",
-    "werent",
-    "weren't",
-    "cant",
-    "can't",
-    "couldnt",
-    "couldn't",
-    "wouldnt",
-    "wouldn't",
-    "shouldnt",
-    "shouldn't",
-    "wont",
-    "won't",
-    "hardly",
-    "barely",
+    "not", "no", "never", "none", "didnt", "don't", "dont", "isnt", "isn't",
+    "wasnt", "wasn't", "werent", "weren't", "cant", "can't", "couldnt",
+    "couldn't", "wouldnt", "wouldn't", "shouldnt", "shouldn't", "wont",
+    "won't", "hardly", "barely",
 }
 
 POSITIVE_PHRASES = [
-    "would come back",
-    "highly recommend",
-    "really good",
-    "very good",
-    "so good",
-    "great service",
-    "great food",
-    "loved the food",
-    "loved the service",
-    "excellent service",
-    "excellent food",
+    "would come back", "highly recommend", "really good", "very good",
+    "so good", "great service", "great food", "loved the food",
+    "loved the service", "excellent service", "excellent food",
 ]
 
 NEGATIVE_PHRASES = [
-    "didnt like",
-    "didn't like",
-    "do not like",
-    "not good",
-    "not great",
-    "not tasty",
-    "not fresh",
-    "not clean",
-    "not worth",
-    "would not recommend",
-    "wouldn't recommend",
-    "never coming back",
-    "won't come back",
-    "bad service",
-    "bad food",
-    "terrible service",
-    "terrible food",
-    "poor service",
-    "poor food",
-    "too salty",
-    "too expensive",
-    "too noisy",
-    "very slow",
-    "service was slow",
+    "didnt like", "didn't like", "do not like", "not good", "not great",
+    "not tasty", "not fresh", "not clean", "not worth", "would not recommend",
+    "wouldn't recommend", "never coming back", "won't come back", "bad service",
+    "bad food", "terrible service", "terrible food", "poor service", "poor food",
+    "too salty", "too expensive", "too noisy", "very slow", "service was slow",
     "food was cold",
 ]
 
@@ -226,13 +133,7 @@ def analyze_sentiment(comments):
     total = positive + neutral + negative
 
     if total == 0:
-        return {
-            "label": "No Data",
-            "score": 0,
-            "positive": 0,
-            "neutral": 0,
-            "negative": 0,
-        }
+        return {"label": "No Data", "score": 0, "positive": 0, "neutral": 0, "negative": 0}
 
     score = round(((positive - negative) / total) * 100, 1)
 
@@ -243,13 +144,7 @@ def analyze_sentiment(comments):
     else:
         label = "Mixed"
 
-    return {
-        "label": label,
-        "score": score,
-        "positive": positive,
-        "neutral": neutral,
-        "negative": negative,
-    }
+    return {"label": label, "score": score, "positive": positive, "neutral": neutral, "negative": negative}
 
 
 def normalize_amenities_for_response(amenities):
@@ -289,8 +184,11 @@ def create_restaurant(
     payload: RestaurantCreateRequest,
     current_user=Depends(get_current_user_or_owner),
 ):
+    # Check if the entity exists in owners collection to determine if it's an owner
+    is_owner = mongo_db.owners.find_one({"_id": ObjectId(current_user["id"])}) is not None
+
     restaurant_doc = {
-        "owner_id": None,
+        "owner_id": current_user["id"] if is_owner else None,
         "created_by_user_id": current_user["id"],
         "name": payload.name,
         "address": payload.address,
@@ -312,8 +210,8 @@ def create_restaurant(
 
     result = mongo_db.restaurants.insert_one(restaurant_doc)
     publish_event("restaurant.created", {
-    "restaurant_id": str(result.inserted_id),
-    "name": payload.name,
+        "restaurant_id": str(result.inserted_id),
+        "name": payload.name,
     })
     created_restaurant = mongo_db.restaurants.find_one({"_id": result.inserted_id})
 
@@ -418,8 +316,8 @@ def update_restaurant(
     if update_data:
         mongo_db.restaurants.update_one({"_id": restaurant_obj_id}, {"$set": update_data})
         publish_event("restaurant.updated", {
-        "restaurant_id": restaurant_id,
-        "owner_id": current_owner["id"],
+            "restaurant_id": restaurant_id,
+            "owner_id": current_owner["id"],
         })
 
     updated_restaurant = mongo_db.restaurants.find_one({"_id": restaurant_obj_id})
@@ -499,18 +397,16 @@ def claim_restaurant(
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    # Check if already claimed
     if restaurant.get("owner_id"):
         raise HTTPException(status_code=400, detail="Restaurant already claimed")
 
-    # Assign owner
     mongo_db.restaurants.update_one(
         {"_id": restaurant_obj_id},
         {"$set": {"owner_id": current_owner["id"]}},
     )
     publish_event("restaurant.claimed", {
-    "restaurant_id": restaurant_id,
-    "owner_id": current_owner["id"],
+        "restaurant_id": restaurant_id,
+        "owner_id": current_owner["id"],
     })
     return {"message": "Restaurant claimed successfully"}
 
@@ -533,7 +429,6 @@ def delete_restaurant(
     if restaurant.get("owner_id") != current_owner["id"]:
         raise HTTPException(status_code=403, detail="You do not own this restaurant")
 
-    # Cascade delete related data
     mongo_db.reviews.delete_many({"restaurant_id": restaurant_id})
     mongo_db.favourites.delete_many({"restaurant_id": restaurant_id})
     mongo_db.activity_logs.delete_many({"restaurant_id": restaurant_id})

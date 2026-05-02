@@ -17,7 +17,7 @@ class UserLoginRequest(BaseModel):
 
 class UserPublic(BaseModel):
     id: str
-    name: str
+    name: Optional[str] = None
     email: EmailStr
     location: Optional[str] = None
     profile_pic: Optional[str] = None
